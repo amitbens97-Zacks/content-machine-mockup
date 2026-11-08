@@ -4,7 +4,7 @@
 
 - הרצה מקומית: לחיצה כפולה על `open-mockup.bat` (פורט 4187).
 - המוק-אפ נפתח על השלב, בתוך המערכת. Shift+D פותח הערות למפתחים, מעבר מהיר בין המסכים ומתגים למקרי קצה.
-- פרמטרים בקישור: `?view=step|home`, `?screen=opening|channel|look|plan|content|flyer|publish|done`, `?user=f` לפנייה בלשון נקבה.
+- פרמטרים בקישור: `?view=step|home`, `?screen=opening|channel|look|plan|item1|item2|item3|flyer|publish|done`, `?user=f` לפנייה בלשון נקבה.
 
 הקבצים:
 - `src/data.js` נתוני הדוגמה (מרחב שקט), 10 התבניות, הנושאים.

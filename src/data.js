@@ -15,10 +15,15 @@ export const WORDS = 'כריש המילים';
 export const DESIGN = 'כריש העיצוב';
 
 export const STEP = { n: 10, name: 'מכונת תוכן שיווקי', chapterNo: 4, chapter: 'מביאים לקוחות', icon: 'megaphone' };
-export const PARTS = ['הערוץ והמראה', 'התוכנית לשבוע', 'התוכן', 'הפלייר', 'פרסום'];
+// Six parts, one job each. "כתיבת התוכן" has a screen per item of the week.
+export const PARTS = ['ערוצים', 'עיצוב', 'תוכנית לשבוע', 'כתיבת התוכן', 'פלייר', 'תזמון'];
 // Screens of the step and the part each one belongs to.
-export const STEP_SCREENS = ['channel', 'look', 'plan', 'content', 'flyer', 'publish'];
-export const PART_OF = { channel: 0, look: 0, plan: 1, content: 2, flyer: 3, publish: 4 };
+export const STEP_SCREENS = ['channel', 'look', 'plan', 'item1', 'item2', 'item3', 'flyer', 'publish'];
+export const PART_OF = { channel: 0, look: 1, plan: 2, item1: 3, item2: 3, item3: 3, flyer: 4, publish: 5 };
+export const ITEM_SCREENS = ['item1', 'item2', 'item3'];
+// What the main button leads to, in words.
+export const SCREEN_NAME = { channel: 'ערוצים', look: 'עיצוב', plan: 'תוכנית לשבוע', item1: 'פריט 1', item2: 'פריט 2', item3: 'פריט 3', flyer: 'פלייר', publish: 'תזמון', done: 'סיום' };
+export const partLabel = (i) => `חלק ${i + 1} מתוך ${PARTS.length} · ${PARTS[i]}`;
 
 // The demo user: a therapist with a small private clinic, the same business as in task 4.
 // FlowBiz knows how each user asked to be addressed (זכר / נקבה): ?user=f|m or Shift+D.

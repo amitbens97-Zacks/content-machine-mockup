@@ -1,14 +1,14 @@
 // Task 5: step 10 "מכונת תוכן שיווקי". The mockup opens on the step, inside the system;
 // the home page is reached the way a user reaches it. The developer notes (Shift+D) are
 // the only part that belongs to the mockup.
-// Link params: ?view=step|home, ?screen=opening|channel|look|plan|content|flyer|publish|done,
+// Link params: ?view=step|home, ?screen=opening|channel|look|plan|item1|item2|item3|flyer|publish|done,
 // ?user=f, ?embed = phone layout.
 import { html, render, useState, useEffect, useRef, Icon, cx } from './lib.js';
-import { Logo, PartnerBubble, Progress, TopBar, BottomBar, Status, PrimaryButton, Button, Toast } from './components.js';
-import { STEP, PARTS, STEP_SCREENS, PART_OF, START_PLAN, g } from './data.js';
+import { Logo, PartnerBubble, Stepper, TopBar, BottomBar, Status, PrimaryButton, Button, Toast } from './components.js';
+import { STEP, PARTS, STEP_SCREENS, PART_OF, ITEM_SCREENS, SCREEN_NAME, START_PLAN, g } from './data.js';
 import { loadState, saveState, freshState } from './state.js';
-import { Opening, ChannelScreen, LookScreen, PlanScreen, ContentScreen, FlyerScreen, Done, itemState } from './step.js';
-import { PublishScreen, GrowSheet } from './publish.js';
+import { Opening, ChannelScreen, LookScreen, PlanScreen, ItemScreen, FlyerScreen, Done, itemState } from './step.js';
+import { PublishScreen, GrowSheet, ConfirmAll, targetsOf } from './publish.js';
 import { Home } from './home.js';
 import { DevPanel } from './devnotes.js';
 import { EMBED, IS_PHONE, readView, saveView, writeHandoff, takeHandoff, applyPhoneViewport, ViewToggle, PhonePreview } from './viewswitch.js';
@@ -19,7 +19,8 @@ const SCREENS = ['opening', ...STEP_SCREENS, 'done'];
 function startRoute() {
   const view = params.get('view');
   if (view === 'home') return { view };
-  return { view: 'step', screen: SCREENS.includes(params.get('screen')) ? params.get('screen') : 'opening' };
+  const s = params.get('screen') === 'content' ? 'item1' : params.get('screen'); // old links
+  return { view: 'step', screen: SCREENS.includes(s) ? s : 'opening' };
 }
 
 const SHARK_LINE = {
@@ -27,7 +28,9 @@ const SHARK_LINE = {
   channel: 'עדיף ערוץ אחד או שניים שמפרסמים בהם כל שבוע, מחמישה שמפרסמים בהם פעם בחודש.',
   look: 'בחרתי מראש את התבנית שנבנתה לטיפול רגשי. אפשר להחליף, וכל התוכן מתעדכן.',
   plan: g('כל נושא כאן בא מכאב שכתבת בתיק הלקוח. אם משהו לא יושב לך, "רעיון אחר".', 'כל נושא כאן בא מכאב שכתבת בתיק הלקוח. אם משהו לא יושב לך, "רעיון אחר".'),
-  content: g('כדאי לקרוא כל פוסט פעם אחת בקול. אם זה לא נשמע כמוך, תבקש ממני לשנות.', 'כדאי לקרוא כל פוסט פעם אחת בקול. אם זה לא נשמע כמוך, תבקשי ממני לשנות.'),
+  item1: g('כדאי לקרוא כל פוסט פעם אחת בקול. אם זה לא נשמע כמוך, תבקש ממני לשנות.', 'כדאי לקרוא כל פוסט פעם אחת בקול. אם זה לא נשמע כמוך, תבקשי ממני לשנות.'),
+  item2: 'בקרוסלה כל שקופית היא רעיון אחד. אם שדה עובר את המגבלה, אני מקצר.',
+  item3: g('לא חייבים לצלם עכשיו. אם תבחר "אצלם אחר כך", תקבל תזכורת ביומן עם התסריט.', 'לא חייבים לצלם עכשיו. אם תבחרי "אצלם אחר כך", תקבלי תזכורת ביומן עם התסריט.'),
   flyer: 'הפלייר הזה ילך איתך לשלב 11, לפנייה החמה. אז כדאי שהוא יהיה בדיוק כמו שצריך.',
   publish: 'הפוסט של ההצעה יוצא ביום חמישי בערב. זה הזמן שבו הכי הרבה אנשים פנויים לקרוא.',
   home: 'השלב הבא שלך מחכה: מכונת התוכן.',
@@ -43,6 +46,7 @@ function App({ view: shellView, onViewChange }) {
   const [save, setSave] = useState(null);
   const [unread, setUnread] = useState(true);
   const [maxPart, setMaxPart] = useState(0);
+  const [confirm, setConfirm] = useState(false);
   const timers = useRef({});
   const phoneLayout = EMBED || window.innerWidth < 768;
 
@@ -162,17 +166,14 @@ function App({ view: shellView, onViewChange }) {
     setRoute({ view: 'step', screen: s });
     if (s in PART_OF && PART_OF[s] > maxPart) setMaxPart(PART_OF[s]);
   };
-  const allApproved = cfg.plan.every((i) => itemState(cfg, i).approved);
+  const itemN = ITEM_SCREENS.indexOf(screen);
   const allInCal = cfg.plan.every((i) => ['scheduled', 'manual', 'posted'].includes(cfg.sched[i.id]?.status));
   const failed = cfg.plan.some((i) => cfg.sched[i.id]?.status === 'failed');
   const reason =
     screen === 'channel' && !cfg.channels.length ? 'צריך לבחור לפחות ערוץ אחד'
     : screen === 'channel' && (cfg.channels.includes('ig') || cfg.channels.includes('fb')) && !cfg.connect ? 'צריך לבחור: לחבר, או לפרסם בעצמך'
-    : screen === 'content' && !cfg.generated ? 'כריש המילים עוד כותב'
-    : screen === 'content' && !allApproved ? 'צריך לאשר את שלושת הפריטים'
-    : screen === 'flyer' && !cfg.flyer.saved ? 'צריך לשמור את הפלייר'
+    : itemN >= 0 && !cfg.generated ? 'כריש המילים עוד כותב'
     : screen === 'publish' && failed ? 'פריט אחד לא תוזמן. לפתוח אותו ולנסות שוב'
-    : screen === 'publish' && !allInCal ? 'כל פריט צריך להיות בלוח: מתוזמן, או עם תזכורת'
     : null;
   const next = screen === 'opening' ? STEP_SCREENS[0] : STEP_SCREENS[idx + 1] || 'done';
   const props = { cfg, setCfg, flags, notify, phoneLayout };
@@ -181,15 +182,37 @@ function App({ view: shellView, onViewChange }) {
     channel: html`<${ChannelScreen} ...${props} />`,
     look: html`<${LookScreen} ...${props} />`,
     plan: html`<${PlanScreen} ...${props} />`,
-    content: html`<${ContentScreen} ...${props} />`,
+    item1: html`<${ItemScreen} ...${props} n=${0} />`,
+    item2: html`<${ItemScreen} ...${props} n=${1} />`,
+    item3: html`<${ItemScreen} ...${props} n=${2} />`,
     flyer: html`<${FlyerScreen} ...${props} />`,
     publish: html`<${PublishScreen} ...${props} />`,
     done: html`<${Done} ...${props} onGrow=${() => setGrow(true)} />`,
   }[screen];
   const firstOfPart = (i) => STEP_SCREENS.find((s) => PART_OF[s] === i);
+  const stepper = screen !== 'opening' && html`<${Stepper} parts=${PARTS} current=${part} maxReached=${Math.max(maxPart, part)} done=${screen === 'done'} onJump=${(i) => toScreen(firstOfPart(i))}
+    sub=${itemN >= 0 && cfg.generated ? { at: itemN, of: ITEM_SCREENS.length, label: `פריט ${itemN + 1} מתוך ${ITEM_SCREENS.length}` } : null} />`;
+  // The main button says where it leads. On an item it also approves the item; on the
+  // flyer it saves; on "תזמון" it schedules the week, then finishes the step.
+  const direct = targetsOf(cfg, flags).some((x) => x.direct);
+  const approve = (item) => setCfg({ items: { ...cfg.items, [item.id]: { ...itemState(cfg, item), ...(cfg.items[item.id] || {}), approved: true } } });
+  const main =
+    screen === 'opening' ? { label: 'מתחילים', go: () => toScreen(next) }
+    : itemN >= 0 ? { label: `לאשר ולעבור ל${SCREEN_NAME[next]}`, go: () => (approve(cfg.plan[itemN]), toScreen(next)) }
+    : screen === 'plan' ? { label: 'לכתוב את התוכן', go: () => toScreen(next) }
+    : screen === 'flyer' ? { label: 'לשמור ולעבור לתזמון', go: () => (cfg.flyer.saved || (setCfg({ flyer: { ...cfg.flyer, saved: true } }), notify('הפלייר נשמר בקבצים', 'folder-check')), toScreen(next)) }
+    : screen === 'publish' && !allInCal && direct ? { label: 'לתזמן את השבוע', go: () => setConfirm(true) }
+    : screen === 'publish' && !allInCal ? { label: 'להכניס את השבוע ליומן', go: () => {
+        const sched = { ...cfg.sched };
+        cfg.plan.forEach((i) => sched[i.id] || (sched[i.id] = { status: 'manual', to: [] }));
+        setCfg({ sched });
+        notify('3 תזכורות ביומן, עם הטקסט והקבצים', 'bell');
+      } }
+    : screen === 'publish' ? { label: 'סיום השלב', check: true, go: () => (setCfg({ done: true }), toScreen('done')) }
+    : { label: `המשך ל${SCREEN_NAME[next]}`, go: () => toScreen(next) };
   const top = html`<${TopBar}
     step=${STEP}
-    progress=${screen === 'opening' ? null : html`<${Progress} parts=${PARTS} current=${part} maxReached=${Math.max(maxPart, part)} done=${screen === 'done'} onJump=${(i) => toScreen(firstOfPart(i))} />`}
+    progress=${null}
     tools=${html`${screen !== 'done' && html`<button type="button" class="fb-home cursor-pointer whitespace-nowrap max-md:hidden" onClick=${() => (notify('דילגת על השלב. הוא נשאר פתוח במפה, ואפשר לחזור בדיוק לכאן', 'skip-forward'), go({ view: 'home' }))}><${Icon} name="skip-forward" size=${16} />דילוג על השלב</button>`}${!EMBED && html`<${ViewToggle} view=${shellView} onChange=${onViewChange} class="max-md:hidden" />`}${devBtn}`}
     onHome=${() => go({ view: 'home' })}
   />`;
@@ -201,22 +224,16 @@ function App({ view: shellView, onViewChange }) {
     : html`<${BottomBar}
         back=${screen !== 'opening' && html`<${Button} variant="secondary" onClick=${() => toScreen(idx === 0 ? 'opening' : STEP_SCREENS[idx - 1])}>חזרה<//>`}
         status=${html`<${Status} reason=${reason} save=${save} />`}
-        primary=${html`<${PrimaryButton}
-          label=${screen === 'opening' ? 'מתחילים' : screen === 'publish' ? 'סיום השלב' : 'המשך'}
-          check=${screen === 'publish'}
-          disabled=${!!reason}
-          onClick=${() => {
-            if (screen === 'publish') setCfg({ done: true });
-            toScreen(next);
-          }}
-        />`}
+        primary=${html`<${PrimaryButton} label=${main.label} check=${main.check} disabled=${!!reason} onClick=${main.go} />`}
       />`;
   return shell(html`${top}
+    ${stepper}
     <main class="thin-scroll relative min-h-0 flex-1 overflow-y-auto">
       ${body}
       ${SHARK_LINE[screen] && html`<${PartnerBubble} message=${SHARK_LINE[screen]} unread=${unread} onRead=${() => setUnread(false)} />`}
     </main>
-    ${bottom}`);
+    ${bottom}
+    ${confirm && html`<${ConfirmAll} cfg=${cfg} setCfg=${setCfg} flags=${flags} notify=${notify} onClose=${() => setConfirm(false)} />`}`);
 }
 
 function Root() {

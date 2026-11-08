@@ -3,9 +3,9 @@
 // publish.js. Nothing the user already answered in an earlier step is asked again: it is
 // filled in and marked with the step it came from.
 import { html, useState, useEffect, useRef, Icon, PencilCheck, PencilLine, cx, confetti, money } from './lib.js';
-import { Button, Note, StepHeading, SharkAvatar } from './components.js';
+import { Button, Note, StepHeading, SharkAvatar, SubStep } from './components.js';
 import { Chips, Field, inputCls, Tag } from './ui.js';
-import { USER, BRAND, META, PAGE_LINK, PLATFORMS, STYLES, TEMPLATES, RECOMMENDED_TEMPLATE, WEEK, TYPES, FORMATS, TOPICS, TOPIC_CHOICES, OFFER, PARTS, MESSAGE_LINES, BIOS, WORDS, DESIGN, g } from './data.js';
+import { USER, BRAND, META, PAGE_LINK, PLATFORMS, STYLES, TEMPLATES, RECOMMENDED_TEMPLATE, WEEK, TYPES, FORMATS, TOPICS, TOPIC_CHOICES, OFFER, PARTS, partLabel, MESSAGE_LINES, BIOS, WORDS, DESIGN, g } from './data.js';
 import { Canvas, Slide, ReelFrame, Flyer, LAYOUTS, palette } from './art.js';
 import { words, LIMITS, topicOf, checkText, postVersions, postQuote, CHANGES, applyChange, carouselSlides, slideFields, reelScript, TRANSCRIPT, captionLines, REEL_STAGES, fmtSec } from './content.js';
 import { MetaSheet } from './publish.js';
@@ -62,7 +62,8 @@ export function Opening({ cfg, flags }) {
       <${StepHeading} n="10" eyebrow="שלב 10 · מביאים לקוחות" title=${['שבוע של תוכן, ופלייר אחד, ', 'מוכנים לפרסום', '']} />
       <p class="mb-6 max-w-[50ch] text-[18px] text-ink">${WORDS} כותב בקול שלך מתוך מה שכבר בנית: תיק הלקוח, דף המסרים וההצעה. ${DESIGN} מעצב בתבנית שבחרת, עם הלוגו והתמונה שלך. ${g('אתה מאשר', 'את מאשרת')} כל פריט, והוא יוצא לאינסטגרם ולפייסבוק בזמן שקבעת.</p>
       <div class="flex flex-col gap-2 border-t border-line pt-4 text-[15px]">
-        <p class="flex flex-wrap items-center gap-x-2 gap-y-1"><${Icon} name="list" size=${17} class="text-brand-600" /><b>החלקים:</b> ${PARTS.join(' · ')}</p>
+        <div><p class="mb-1.5 flex items-center gap-2"><${Icon} name="list" size=${17} class="text-brand-600" /><b>${PARTS.length} חלקים, אחד אחרי השני:</b></p>
+          <ol class="grid grid-cols-2 gap-x-4 gap-y-1.5 ps-6 sm:grid-cols-3">${PARTS.map((p, i) => html`<li key=${p} class="flex items-center gap-1.5"><span class="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand-100 text-[12px] font-bold text-brand-600">${i + 1}</span>${p}</li>`)}</ol></div>
         <p class="flex items-center gap-2"><${Icon} name="clock" size=${17} class="text-brand-600" /><b>זמן:</b> כ-15 דקות</p>
         <p class="flex items-center gap-2"><${Icon} name="file-check-2" size=${17} class="text-brand-600" /><b>התוצר:</b> 3 פריטים ביומן, ופלייר לשלב 11</p>
       </div>
@@ -90,12 +91,14 @@ export function ChannelScreen({ cfg, setCfg, flags, notify }) {
   };
   const anyMeta = on.includes('ig') || on.includes('fb');
   return html`<div class="mx-auto max-w-[1000px] px-4 py-5 md:px-8 md:py-6">
-    <${StepHeading} n="1" eyebrow="חלק 1 מתוך 5 · הערוץ והמראה" title=${['איפה הקהל שלך ', 'נמצא', '']} sub="מתחילים מהמקום שבו הלקוחות שלך כבר גוללים. אפשר להוסיף ערוצים אחר כך." />
-    <div class="mb-4 flex items-start gap-3 rounded-xl bg-brand-50 p-3 text-[15px]">
+    <${StepHeading} n="1" eyebrow=${partLabel(0)} title=${['איפה ', 'מפרסמים', '']} sub=${`בוחרים ערוץ אחד או יותר, ואז איך הפריטים יוצאים: לבד בזמן שנקבע, או ש${g('אתה מפרסם', 'את מפרסמת')} בעצמך.`} />
+    <section class="fb-panel mb-4 !p-4 md:!p-5">
+    <${SubStep} n="1">איפה הקהל שלך<//>
+    <div class="mb-3 flex items-start gap-3 rounded-xl bg-brand-50 p-3 text-[15px]">
       <${SharkAvatar} size=${34} />
       <p class="min-w-0">לפי <b>צייד הלקוחות</b> (שלב 4): ${flags.b2b ? 'הקהל שלך הוא עסקים, ובעיקר בלינקדאין ובפייסבוק.' : `הקהל שלך נמצא ב${USER.where}.`} אז ההמלצה: <b>${rec.map((id) => PLATFORMS.find((x) => x.id === id).label).join(' ו')}</b>.</p>
     </div>
-    <ul class="mb-5 grid gap-2 sm:grid-cols-3">
+    <ul class="grid gap-2 sm:grid-cols-3">
       ${PLATFORMS.map((pl) => {
         const checked = on.includes(pl.id);
         return html`<li key=${pl.id}>
@@ -107,9 +110,10 @@ export function ChannelScreen({ cfg, setCfg, flags, notify }) {
         </li>`;
       })}
     </ul>
+    </section>
     ${anyMeta &&
     html`<section class="fb-panel !p-4 md:!p-5">
-      <h2 class="fb-h3 mb-1">פרסום ישיר מכאן</h2>
+      <${SubStep} n="2">איך מפרסמים<//>
       ${cfg.connect === 'meta'
         ? html`<div class="rise">
             <ul class="my-3 flex flex-col gap-2">
@@ -117,7 +121,7 @@ export function ChannelScreen({ cfg, setCfg, flags, notify }) {
               ${on.includes('fb') && !flags.noPage && html`<li class="flex flex-wrap items-center gap-2 text-[15px]"><${Icon} name="facebook" size=${18} class="text-brand-600" /><b>${META.fb.page}</b><span class="text-muted">· עמוד עסקי</span><${Tag} tone="live">מחובר<//></li>`}
               ${on.includes('fb') && flags.noPage && html`<li class="flex flex-wrap items-center gap-2 text-[15px]"><${Icon} name="facebook" size=${18} class="text-muted" /><b>פייסבוק</b><${Tag} tone="draft">בלי עמוד עסקי: להעתקה<//></li>`}
             </ul>
-            <button type="button" class="text-[14px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => (setCfg({ connect: null }), notify('החיבור נותק. הפוסטים שתוזמנו בוטלו', 'unplug'))}>ניתוק</button>
+            <button type="button" class="text-[14px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => (setCfg({ connect: null, sched: Object.fromEntries(Object.entries(cfg.sched).filter(([, v]) => v?.status !== 'scheduled')) }), notify('החיבור נותק. הפוסטים שתוזמנו בוטלו', 'unplug'))}>ניתוק</button>
           </div>`
         : html`<p class="mb-3 text-[14px] text-muted">מחברים פעם אחת דרך Meta, וכל פריט שמאשרים יוצא לבד בזמן שנקבע. בלי חיבור, כל פריט מגיע עם טקסט להעתקה, קבצים להורדה ותזכורת ביומן.</p>
           <div class="grid gap-2 sm:grid-cols-2">
@@ -160,51 +164,57 @@ export function LookScreen({ cfg, setCfg, flags, notify }) {
   const photo = photoOf(cfg, flags);
   const samples = cfg.voice.split(/\n\s*\n/).filter((x) => x.trim()).length;
   return html`<div class="mx-auto max-w-[1120px] px-4 py-5 md:px-8 md:py-6">
-    <${StepHeading} n="1" eyebrow="חלק 1 מתוך 5 · הערוץ והמראה" title=${['המראה של ', 'התוכן שלך', '']} sub="בוחרים סגנון ותבנית פעם אחת. כל פוסט, קרוסלה, רילס ופלייר ייראו ככה." />
+    <${StepHeading} n="2" eyebrow=${partLabel(1)} title=${['איך התוכן ', 'ייראה', '']} sub="כבר בחרנו תבנית שמתאימה לעסק. אם היא נראית לך, פשוט ממשיכים. כל פוסט, קרוסלה, רילס ופלייר ייראו ככה." />
     <div class="grid items-start gap-6 md:grid-cols-[1.3fr_0.7fr]">
       <div class="flex min-w-0 flex-col gap-4">
         <section class="fb-panel !p-4 md:!p-5">
-          <h2 class="fb-h3 mb-2">איזה סגנון מתאים לעסק?</h2>
+          <${SubStep} n="1">סגנון<//>
           <${Chips} options=${STYLES} value=${cfg.style} onChange=${(v) => setCfg({ style: v, template: TEMPLATES.find((x) => x.style === v).id })} />
-          <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <${SubStep} n="2" class="mt-5">תבנית<//>
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
             ${list.map((x) => html`<${TemplateCard} key=${x.id} t=${x} cfg=${cfg} flags=${flags} on=${x.id === cfg.template} onPick=${() => setCfg({ template: x.id })} />`)}
           </div>
         </section>
         <section class="fb-panel !p-4 md:!p-5">
-          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 class="fb-h3">לוגו וצבעים</h2>
-            ${!flags.noLogo && html`<${From}>מילאנו לפי "שם ולוגו"<//>`}
-          </div>
-          ${flags.noLogo
-            ? html`<p class="mb-3 rounded-xl bg-warn-50 p-3 text-[14px] text-warn">עוד אין לוגו, אז התוכן יוצא עם שם העסק ובצבעי התבנית. ${g('כשתסיים', 'כשתסיימי')} את שלב 6, הלוגו והצבעים ייכנסו לבד.</p>`
-            : html`<div class="mb-3 flex items-center gap-3">
-                <img src=${BRAND.logo} alt="הלוגו של העסק" class="h-14 w-14 rounded-full bg-white ring-1 ring-line" />
-                <span class="flex gap-1.5">${BRAND.swatches.slice(0, 4).map((c) => html`<i class="h-7 w-7 rounded-full ring-1 ring-line" style=${{ background: c }}></i>`)}</span>
+          <${SubStep} n="3">מה כבר יש לנו ממך<//>
+          <p class="mb-3 text-[14px] text-muted">הלוגו, הצבעים והתמונה מהשלבים הקודמים. אין מה לעשות כאן, אלא אם רוצים להחליף.</p>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="min-w-0 rounded-xl bg-canvas p-3">
+              <p class="mb-2 text-[14px] font-bold">לוגו וצבעים</p>
+              ${flags.noLogo
+                ? html`<p class="rounded-lg bg-warn-50 p-2 text-[13px] text-warn">עוד אין לוגו, אז התוכן יוצא עם שם העסק ובצבעי התבנית. ${g('כשתסיים', 'כשתסיימי')} את שלב 6, הלוגו והצבעים ייכנסו לבד.</p>`
+                : html`<div class="mb-2 flex items-center gap-2.5">
+                    <img src=${BRAND.logo} alt="הלוגו של העסק" class="h-11 w-11 rounded-full bg-white ring-1 ring-line" />
+                    <span class="flex gap-1">${BRAND.swatches.slice(0, 4).map((c) => html`<i class="h-6 w-6 rounded-full ring-1 ring-line" style=${{ background: c }}></i>`)}</span>
+                  </div>
+                  <${Chips} small options=${[{ id: 'brand', label: 'צבעי הלוגו' }, { id: 'own', label: 'צבעי התבנית' }]} value=${cfg.colors} onChange=${(v) => setCfg({ colors: v })} />
+                  <p class="mt-2"><${From}>מילאנו לפי "שם ולוגו"<//></p>`}
+            </div>
+            <div class="min-w-0 rounded-xl bg-canvas p-3">
+              <p class="mb-2 text-[14px] font-bold">התמונה שלך</p>
+              <div class="flex items-center gap-3">
+                ${photo
+                  ? html`<img src=${photo} alt="התמונה שלך" class="h-20 w-16 rounded-lg object-cover ring-1 ring-line" />`
+                  : html`<span class="grid h-20 w-16 place-items-center rounded-lg border-2 border-dashed border-line text-faint"><${Icon} name="image-plus" size=${22} /></span>`}
+                <div class="min-w-0">
+                  <p class="mb-2 text-[13px] text-muted">לפלייר ולחלק מהשקופיות.</p>
+                  <${Button} variant="quiet" onClick=${() => (setCfg({ photo: 'upload' }), notify(photo ? 'במוקאפ: כאן נפתחת בחירת תמונה מהמחשב או מהטלפון' : 'התמונה עלתה', 'image'))}><${Icon} name="upload" size=${15} />${photo ? 'להחליף' : 'להעלות תמונה'}<//>
+                </div>
               </div>
-              <${Chips} small options=${[{ id: 'brand', label: 'צבעי הלוגו' }, { id: 'own', label: 'צבעי התבנית' }]} value=${cfg.colors} onChange=${(v) => setCfg({ colors: v })} />`}
-          <p class="mt-2 flex items-center gap-1.5 text-[13px] text-muted"><${Icon} name="contrast" size=${15} />ניגודיות הטקסט: ${p.ratio.toFixed(1)}:1. המינימום הוא 4.5:1, אז הטקסט קריא.</p>
-        </section>
-        <section class="fb-panel !p-4 md:!p-5">
-          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 class="fb-h3">התמונה שלך</h2>
-            ${photo && cfg.photo === 'landing' && html`<${From}>מילאנו לפי "דף נחיתה"<//>`}
-          </div>
-          <div class="flex items-center gap-4">
-            ${photo
-              ? html`<img src=${photo} alt="התמונה שלך" class="h-24 w-20 rounded-xl object-cover ring-1 ring-line" />`
-              : html`<span class="grid h-24 w-20 place-items-center rounded-xl border-2 border-dashed border-line text-faint"><${Icon} name="image-plus" size=${26} /></span>`}
-            <div class="min-w-0">
-              <p class="mb-2 text-[14px]">הפלייר וחלק מהשקופיות משתמשים בתמונה הזו, באותה תמונה בעיצובים שונים.</p>
-              <${Button} variant="mini" onClick=${() => (setCfg({ photo: 'upload' }), notify(photo ? 'במוקאפ: כאן נפתחת בחירת תמונה מהמחשב או מהטלפון' : 'התמונה עלתה', 'image'))}><${Icon} name="upload" size=${15} />${photo ? 'להחליף תמונה' : 'להעלות תמונה'}<//>
+              ${photo && cfg.photo === 'landing' && html`<p class="mt-2"><${From}>מילאנו לפי "דף נחיתה"<//></p>`}
             </div>
           </div>
+          <p class="mt-2 flex items-center gap-1.5 text-[13px] text-muted"><${Icon} name="contrast" size=${15} />ניגודיות הטקסט: ${p.ratio.toFixed(1)}:1. המינימום הוא 4.5:1, אז הטקסט קריא.</p>
         </section>
-        <section class="fb-panel !p-4 md:!p-5">
-          <h2 class="fb-h3 mb-1">טקסטים שכתבת בעצמך <span class="text-[14px] font-normal text-muted">(לא חובה)</span></h2>
-          <p class="mb-2 text-[14px] text-muted">עד 5 פוסטים או הודעות שכתבת. ${WORDS} לומד מהם איך ${g('אתה כותב', 'את כותבת')}: אורך המשפטים, המילים, ההומור. שורה ריקה בין טקסט לטקסט.</p>
+        <details class="fb-panel group !p-4 md:!p-5" open=${!!cfg.voice}>
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+            <span class="flex items-center gap-2 text-[16px] font-bold"><${Icon} name="pen-line" size=${18} class="text-brand-600" />שהתוכן יישמע עוד יותר כמוך <span class="text-[14px] font-normal text-muted">(לא חובה)</span></span>
+            <${Icon} name="chevron-down" size=${18} class="text-muted transition-transform group-open:rotate-180" />
+          </summary>
+          <p class="mb-2 mt-3 text-[14px] text-muted">עד 5 פוסטים או הודעות שכתבת. ${WORDS} לומד מהם איך ${g('אתה כותב', 'את כותבת')}: אורך המשפטים, המילים, ההומור. שורה ריקה בין טקסט לטקסט.</p>
           <textarea rows="4" class=${cx(inputCls, '!h-auto py-2 leading-relaxed')} placeholder="להדביק כאן" value=${cfg.voice} onInput=${(e) => setCfg({ voice: e.target.value })}></textarea>
           ${samples > 0 && html`<p class="mt-1 text-[13px] text-muted">${samples > 5 ? 'נלקחים 5 הראשונים' : samples === 1 ? 'טקסט אחד' : `${samples} טקסטים`}</p>`}
-        </section>
+        </details>
       </div>
       <aside class="sticky top-4 hidden md:block">
         <p class="mb-2 text-[14px] font-bold">ככה זה ייראה</p>
@@ -222,7 +232,7 @@ export function PlanScreen({ cfg, setCfg, flags, notify }) {
   const offers = plan.filter((i) => topicOf(i).type === 'offer').length;
   const setItem = (id, p) => setCfg({ plan: plan.map((i) => (i.id === id ? { ...i, ...p } : i)), generated: false, items: { ...cfg.items, [id]: undefined } });
   return html`<div class="mx-auto max-w-[1120px] px-4 py-5 md:px-8 md:py-6">
-    <${StepHeading} n="2" eyebrow="חלק 2 מתוך 5 · התוכנית לשבוע" title=${['3 פריטים ', 'לשבוע הזה', '']} sub="הנושאים באים מהכאבים שבתיק הלקוח. שניים נותנים ערך, ואחד מציע, ורק כשיש הצעה." />
+    <${StepHeading} n="3" eyebrow=${partLabel(2)} title=${['3 פריטים ', 'לשבוע הזה', '']} sub="שלושה נושאים מוכנים, מתוך הכאבים שבתיק הלקוח. אפשר להחליף נושא, יום או צורה, או פשוט להמשיך." />
     <div class="grid gap-4 md:grid-cols-3">
       ${plan.map((item, idx) => {
         const t = topicOf(item);
@@ -312,7 +322,7 @@ function PostEditor({ item, st, setIt, t, p, tpl, flags }) {
   const setText = (v) => setIt({ texts: { ...st.texts, [st.version]: v } });
   return html`<div class="grid items-start gap-5 md:grid-cols-[1.2fr_0.8fr]">
     <div class="min-w-0">
-      <p class="mb-2 text-[14px] font-bold">3 גרסאות, כל אחת עם פתיח אחר</p>
+      <${SubStep} n="1">בוחרים פתיח<//>
       <div class="mb-3 grid gap-2 sm:grid-cols-3" role="radiogroup">
         ${versions.map((v) => html`<button key=${v.id} type="button" role="radio" aria-checked=${st.version === v.id} onClick=${() => (setIt({ version: v.id }), setPending(null))} class=${cx('rounded-xl border-[1.5px] bg-white p-2.5 text-start cursor-pointer', st.version === v.id ? 'border-brand-600 bg-brand-50' : 'border-line hover:border-brand-300')}>
           <b class="block text-[14px]">${v.label}</b>
@@ -320,6 +330,7 @@ function PostEditor({ item, st, setIt, t, p, tpl, flags }) {
           <small class="mt-1 block text-[12px] leading-snug text-muted">מה שונה כאן: ${v.diff}</small>
         </button>`)}
       </div>
+      <${SubStep} n="2" class="mt-5">קוראים, ומתקנים אם צריך<//>
       <textarea rows="9" class=${cx(inputCls, '!h-auto py-2 leading-relaxed')} value=${text} onInput=${(e) => setText(e.target.value)} aria-label="הטקסט של הפוסט"></textarea>
       <${Checks} text=${text} />
       <div class="mt-2 flex flex-wrap items-center gap-1.5">
@@ -344,12 +355,13 @@ function CarouselEditor({ item, st, setIt, p, tpl, flags }) {
   const shorten = (k, limit) => setField(k, s[k].split(/\s+/).slice(0, limit).join(' ').replace(/[,،]$/, ''));
   const over = slides.some((x) => slideFields(x).some(([k, , lim]) => words(x[k]) > lim) || (x.points || []).some((pt) => words(pt) > LIMITS.sumPoint));
   return html`<div>
-    <p class="mb-2 flex items-center justify-between text-[14px] font-bold"><span>${slides.length} שקופיות · 1080×1350</span>${over ? html`<${Tag} tone="fix">יש שדה מעל המגבלה<//>` : html`<${Tag} tone="live">כל השדות בתוך המגבלה<//>`}</p>
+    <${SubStep} n="1" aside=${over ? html`<${Tag} tone="fix">יש שדה מעל המגבלה<//>` : html`<${Tag} tone="live">כל השדות בתוך המגבלה<//>`}>עוברים על ${slides.length} השקופיות<//>
     <div class="thin-scroll -mx-1 mb-3 flex gap-3 overflow-x-auto px-1 pb-2">
       ${slides.map((x, i) => html`<button key=${i} type="button" onClick=${() => setSel(i)} aria-pressed=${sel === i} class=${cx('w-[150px] shrink-0 rounded-xl p-1 cursor-pointer md:w-[170px]', sel === i ? 'ring-[3px] ring-brand-600' : 'ring-1 ring-line hover:ring-brand-300')}>
         <${Canvas} round=${7}><${Slide} s=${x} t=${tpl} p=${p} i=${i} total=${slides.length} noLogo=${flags.noLogo} /><//>
       </button>`)}
     </div>
+    <${SubStep} n="2" class="mt-2">מתקנים את השקופית שנבחרה, אם צריך<//>
     <section class="rounded-xl bg-canvas p-3">
       <p class="mb-2 text-[14px] font-bold">שקופית ${sel + 1}: ${{ cover: 'שער', content: 'רעיון אחד', summary: 'סיכום', cta: 'הנעה לפעולה' }[s.kind]}</p>
       ${slideFields(s).map(([k, label, lim]) => {
@@ -397,7 +409,7 @@ function ReelEditor({ item, st, setIt, p, tpl, flags, notify, cfg }) {
   const total = caps.length ? caps[caps.length - 1].to : 0;
   return html`<div class="grid items-start gap-5 md:grid-cols-[1.3fr_0.7fr]">
     <div class="min-w-0">
-      <p class="mb-2 text-[14px] font-bold">ההוק, למעלה לאורך כל הרילס</p>
+      <${SubStep} n="1" aside=${html`<small class="text-[13px] text-muted">מופיע למעלה לאורך כל הרילס</small>`}>בוחרים הוק<//>
       <div class="mb-4 grid gap-2 sm:grid-cols-2" role="radiogroup">
         ${tp.hooks.map((h, i) => html`<button key=${i} type="button" role="radio" aria-checked=${st.hook === i} onClick=${() => setIt({ hook: i })} class=${cx('flex flex-col gap-1 rounded-xl border-[1.5px] bg-white p-2.5 text-start cursor-pointer', st.hook === i ? 'border-brand-600 bg-brand-50' : 'border-line hover:border-brand-300')}>
           <span class="text-[14px] font-bold leading-snug">${h}</span>
@@ -406,7 +418,7 @@ function ReelEditor({ item, st, setIt, p, tpl, flags, notify, cfg }) {
         <button type="button" role="radio" aria-checked=${st.hook === 'none'} onClick=${() => setIt({ hook: 'none' })} class=${cx('rounded-xl border-[1.5px] bg-white p-2.5 text-start text-[14px] font-bold cursor-pointer', st.hook === 'none' ? 'border-brand-600 bg-brand-50' : 'border-line hover:border-brand-300')}>בלי הוק</button>
       </div>
       ${st.video !== 'ready' &&
-      html`<p class="mb-2 text-[14px] font-bold">התסריט · 30 עד 45 שניות</p>
+      html`<${SubStep} n="2" aside=${html`<small class="text-[13px] text-muted">30 עד 45 שניות</small>`}>מצלמים לפי התסריט, עכשיו או אחר כך<//>
         <div class="mb-4 overflow-hidden rounded-xl ring-1 ring-line">
           <table class="w-full text-[14px]">
             <thead class="bg-canvas text-[12px] text-muted"><tr><th class="w-[58px] px-2 py-1.5 text-start">שניות</th><th class="px-2 py-1.5 text-start">מה אומרים</th><th class="px-2 py-1.5 text-start max-sm:hidden">על המסך</th></tr></thead>
@@ -455,10 +467,16 @@ function ReelEditor({ item, st, setIt, p, tpl, flags, notify, cfg }) {
   </div>`;
 }
 
-export function ContentScreen({ cfg, setCfg, flags, notify }) {
+const ITEM_HOW = {
+  post: 'בוחרים פתיח, קוראים, ומאשרים בכפתור למטה.',
+  carousel: 'עוברים על השקופיות, מתקנים אם צריך, ומאשרים בכפתור למטה.',
+  reel: 'בוחרים הוק, מצלמים לפי התסריט (עכשיו או אחר כך), ומאשרים בכפתור למטה.',
+};
+
+// One item of the week per screen: "פריט 2 מתוך 3". The main button approves it and moves on.
+export function ItemScreen({ cfg, setCfg, flags, notify, n }) {
   const tpl = tplOf(cfg);
   const p = palOf(cfg, flags);
-  const [tab, setTab] = useState(cfg.plan[0].id);
   const [stage, setStage] = useState(cfg.generated ? 99 : 0);
   const stages = GEN_STAGES(tpl);
   useEffect(() => {
@@ -467,13 +485,12 @@ export function ContentScreen({ cfg, setCfg, flags, notify }) {
       setCfg({ generated: true });
       return;
     }
-    const id = setTimeout(() => setStage((n) => n + 1), 520);
+    const id = setTimeout(() => setStage((x) => x + 1), 520);
     return () => clearTimeout(id);
   }, [stage, cfg.generated]);
-  const head = html`<${StepHeading} n="3" eyebrow="חלק 3 מתוך 5 · התוכן" title=${['התוכן של השבוע, ', 'בקול שלך', '']} sub=${`${WORDS} כתב, ${DESIGN} עיצב. כל שינוי ש${g('תבקש', 'תבקשי')} מוצג לפני ואחרי, ונכנס רק אחרי "כן".`} />`;
   if (!cfg.generated)
     return html`<div class="mx-auto max-w-[620px] px-4 py-5 md:px-8 md:py-6">
-      ${head}
+      <${StepHeading} n="4" eyebrow=${partLabel(3)} title=${['כותבים את ', 'התוכן של השבוע', '']} sub=${`${WORDS} כותב את שלושת הפריטים בקול שלך, ו${DESIGN} מעצב. כמה שניות, ואז עוברים עליהם אחד אחד.`} />
       <section class="fb-panel !p-5">
         <p class="mb-4 flex items-center gap-2 font-display text-[18px] font-bold"><${SharkAvatar} size=${34} mood="thinking" />${WORDS} עובד על זה</p>
         <div class="fb-stages">
@@ -481,37 +498,27 @@ export function ContentScreen({ cfg, setCfg, flags, notify }) {
         </div>
       </section>
     </div>`;
-  const item = cfg.plan.find((i) => i.id === tab) || cfg.plan[0];
+  const item = cfg.plan[n];
   const st = itemState(cfg, item);
+  const fmt = fmtOf(item.format);
+  const d = dayOf(item.day);
   const setIt = (patch) => setCfg({ items: { ...cfg.items, [item.id]: { ...st, ...(cfg.items[item.id] || {}), ...patch } } });
   const props = { item, st, setIt, p, tpl, flags, notify, cfg };
   return html`<div class="mx-auto max-w-[1120px] px-4 py-5 md:px-8 md:py-6">
-    ${head}
-    <div class="no-scrollbar -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:px-0" role="tablist">
-      ${cfg.plan.map((i) => {
-        const s = itemState(cfg, i);
-        return html`<button key=${i.id} type="button" role="tab" aria-selected=${tab === i.id} onClick=${() => setTab(i.id)} class=${cx('flex shrink-0 items-center gap-2 rounded-xl border-[1.5px] px-3 py-2 text-start cursor-pointer', tab === i.id ? 'border-brand-600 bg-brand-50' : 'border-line bg-white hover:border-brand-300')}>
-          <${Icon} name=${fmtOf(i.format).icon} size=${17} class="text-brand-600" />
-          <span><b class="block text-[14px]">${dayOf(i.day).label} · ${fmtOf(i.format).label}</b><small class="block text-[12px] text-muted">${typeOf(topicOf(i).type).label}</small></span>
-          ${s.approved ? html`<${PencilCheck} size=${18} color="#0038b8" />` : html`<span class="h-4 w-4 rounded-full border-2 border-dashed border-line"></span>`}
-        </button>`;
-      })}
-    </div>
+    <${StepHeading} n="4" eyebrow=${partLabel(3)} title=${[`פריט ${n + 1} מתוך ${cfg.plan.length}: `, fmt.label, '']} sub=${ITEM_HOW[item.format]} />
     <section key=${item.id} class="fb-panel !p-4 md:!p-5">
-      <h2 class="fb-h3 mb-3">${topicOf(item).title}</h2>
+      <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line pb-3">
+        <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-100 text-brand-600"><${Icon} name=${fmt.icon} size=${20} /></span>
+        <span class="min-w-0 flex-1">
+          <b class="block font-display text-[19px] leading-snug">${topicOf(item).title}</b>
+          <small class="block text-[13px] text-muted">${d.label} ${d.date} בשעה ${item.time} · ${typeOf(topicOf(item).type).label}</small>
+        </span>
+        ${st.approved && html`<${Tag} tone="live"><${Icon} name="check" size=${12} />אושר<//>`}
+      </div>
       ${item.format === 'post' && html`<${PostEditor} ...${props} />`}
       ${item.format === 'carousel' && html`<${CarouselEditor} ...${props} />`}
       ${item.format === 'reel' && html`<${ReelEditor} ...${props} />`}
-      <div class="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-3">
-        ${st.approved
-          ? html`<span class="flex items-center gap-1.5 font-bold text-brand-600"><${PencilCheck} size=${20} color="#0038b8" />הפריט אושר</span><button type="button" class="text-[14px] font-bold text-muted underline underline-offset-2 cursor-pointer" onClick=${() => setIt({ approved: false })}>לבטל אישור</button>`
-          : html`<${Button} variant="secondary" onClick=${() => {
-              const nextOpen = cfg.plan.find((i) => i.id !== item.id && !itemState(cfg, i).approved);
-              setIt({ approved: true });
-              if (nextOpen) setTimeout(() => setTab(nextOpen.id), 350);
-            }}><${Icon} name="check" size=${16} />${g('מאשר', 'מאשרת')} את הפריט<//>`}
-        <span class="text-[13px] text-muted">אישור כאן הוא על התוכן. שום דבר לא יוצא לפני התזמון בחלק 5.</span>
-      </div>
+      <p class="mt-5 flex items-start gap-1.5 border-t border-line pt-3 text-[13px] text-muted"><${Icon} name="shield-check" size=${15} class="mt-0.5 shrink-0" />האישור הוא על התוכן בלבד. שום דבר לא יוצא לפני חלק 6, תזמון.</p>
     </section>
   </div>`;
 }
@@ -533,11 +540,11 @@ export function FlyerScreen({ cfg, setCfg, flags, notify }) {
   const setF = (patch) => setCfg({ flyer: { ...f, ...patch, saved: patch.saved ?? false } });
   const edit = (k, v) => setF({ edits: { ...f.edits, [k]: v } });
   return html`<div class="mx-auto max-w-[1120px] px-4 py-5 md:px-8 md:py-6">
-    <${StepHeading} n="4" eyebrow="חלק 4 מתוך 5 · הפלייר" title=${['פלייר אחד, עם ', 'התמונה שלך', '']} sub="אותה תמונה בשלושה עיצובים. הפלייר נשמר בקבצים, ומחכה לך בשלב 11, פנייה חמה." />
+    <${StepHeading} n="5" eyebrow=${partLabel(4)} title=${['פלייר אחד, עם ', 'התמונה שלך', '']} sub="בוחרים עיצוב, בודקים מה כתוב, ושומרים בכפתור למטה. הפלייר מחכה לך בשלב 11, פנייה חמה." />
     <div class="grid items-start gap-6 md:grid-cols-[1fr_380px]">
       <div class="flex min-w-0 flex-col gap-4">
         <section class="fb-panel !p-4 md:!p-5">
-          <h2 class="fb-h3 mb-3">העיצוב</h2>
+          <${SubStep} n="1" aside=${html`<small class="text-[13px] text-muted">אותה תמונה, 3 עיצובים</small>`}>בוחרים עיצוב<//>
           <div class="grid grid-cols-3 gap-3" role="radiogroup">
             ${LAYOUTS.map((l) => html`<button key=${l.id} type="button" role="radio" aria-checked=${f.layout === l.id} onClick=${() => setF({ layout: l.id })} class=${cx('flex flex-col gap-1.5 rounded-xl p-1.5 text-center cursor-pointer', f.layout === l.id ? 'ring-[3px] ring-brand-600' : 'ring-1 ring-line hover:ring-brand-300')}>
               <${Canvas} round=${6}><${Flyer} t=${tpl} p=${p} layout=${l.id} photo=${photo} noLogo=${flags.noLogo} offer=${offer} price=${f.price && !!offer.price} qr=${f.qr} /><//>
@@ -548,10 +555,7 @@ export function FlyerScreen({ cfg, setCfg, flags, notify }) {
           <div class="flex gap-2">${BRAND.swatches.map((c, i) => html`<button key=${c} type="button" aria-label=${`צבע ${i + 1}`} aria-pressed=${(f.swatch || 0) === i} onClick=${() => setF({ swatch: i })} class=${cx('h-9 w-9 rounded-full cursor-pointer', (f.swatch || 0) === i ? 'ring-[3px] ring-brand-600 ring-offset-2' : 'ring-1 ring-line')} style=${{ background: c }}></button>`)}</div>
         </section>
         <section class="fb-panel !p-4 md:!p-5">
-          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 class="fb-h3">מה כתוב</h2>
-            <${From}>${flags.noOffer ? 'מילאנו לפי "דף המסרים"' : 'מילאנו לפי "בניית הצעה מנצחת"'}<//>
-          </div>
+          <${SubStep} n="2" aside=${html`<${From}>${flags.noOffer ? 'מילאנו לפי "דף המסרים"' : 'מילאנו לפי "בניית הצעה מנצחת"'}<//>`}>בודקים מה כתוב<//>
           <${Field} label="כותרת"><input class=${inputCls} value=${offer.title} onInput=${(e) => edit('title', e.target.value)} /><//>
           <${Field} label="שורה מתחת"><input class=${inputCls} value=${offer.sub} onInput=${(e) => edit('sub', e.target.value)} /><//>
           <${Field} label="הכפתור"><input class=${inputCls} value=${offer.cta} onInput=${(e) => edit('cta', e.target.value)} /><//>
@@ -568,7 +572,7 @@ export function FlyerScreen({ cfg, setCfg, flags, notify }) {
         </div>
         ${f.saved
           ? html`<p class="rise mt-3 flex items-center gap-2 rounded-xl bg-brand-50 p-3 text-[14px] font-bold text-brand-600"><${PencilCheck} size=${20} color="#0038b8" />נשמר בקבצים. מחכה לך בשלב 11</p>`
-          : html`<${Button} class="mt-3 w-full" onClick=${() => (setCfg({ flyer: { ...f, saved: true } }), notify('הפלייר נשמר בקבצים', 'folder-check'))}><${Icon} name="save" size=${18} />שמירת הפלייר<//>`}
+          : html`<p class="mt-3 flex items-center gap-2 text-[13px] text-muted"><${Icon} name="save" size=${15} />נשמר בקבצים כש${g('תמשיך', 'תמשיכי')} לתזמון</p>`}
       </aside>
     </div>
   </div>`;
