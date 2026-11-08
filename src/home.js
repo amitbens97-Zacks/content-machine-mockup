@@ -2,9 +2,9 @@
 // the week with each item's state, and, once a week is done, the next week, ready to make.
 import { html, Icon } from './lib.js';
 import { Button } from './components.js';
-import { USER, STEP, LAST_WEEK_STATS, weekRange, g } from './data.js';
+import { USER, STEP, LAST_WEEK_STATS, MAX_WEEKS, weekRange, g } from './data.js';
 import { topicOf } from './content.js';
-import { fmtOf, dayOf, Toggle } from './step.js';
+import { fmtOf, dayOf, Toggle, StreakEnd } from './step.js';
 import { statusTag } from './publish.js';
 
 export function Home({ state, setCfg, go, onGrow, onNextWeek }) {
@@ -24,18 +24,19 @@ export function Home({ state, setCfg, go, onGrow, onNextWeek }) {
       </span>
       <${Button} class="!h-11 !text-[16px]" onClick=${() => (firstDone ? null : go({ view: 'step', screen: 'opening' }))}>${firstDone ? 'לשלב 11' : 'להתחיל'}<${Icon} name="arrow-left" size=${18} /><//>
     </section>
-    ${firstDone && html`<section class="fb-panel mb-4 border-[1.5px] border-brand-300 !p-4">
+    ${firstDone && cfg.done && week >= MAX_WEEKS && html`<${StreakEnd} cfg=${cfg} />`}
+    ${firstDone && !(cfg.done && week >= MAX_WEEKS) && html`<section class="fb-panel mb-4 border-[1.5px] border-brand-300 !p-4">
       <div class="flex flex-wrap items-center gap-3">
         <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-100 text-brand-600"><${Icon} name="calendar-plus" size=${22} /></span>
         <span class="min-w-0 flex-1">
-          <small class="fb-eyebrow block">מכונת התוכן · כל שבוע</small>
-          <b class="block text-[17px]">${cfg.done ? `השבוע הבא, ${weekRange(week + 1)}: 3 נושאים מחכים` : `שבוע ${week} מחכה לך`}</b>
+          <small class="fb-eyebrow block">מכונת התוכן · ${MAX_WEEKS} שבועות ברצף</small>
+          <b class="block text-[17px]">${cfg.done ? `שבוע ${week + 1} מתוך ${MAX_WEEKS}, ${weekRange(week + 1)}: 3 נושאים מחכים` : `שבוע ${week} מתוך ${MAX_WEEKS} מחכה לך`}</b>
           <small class="block text-[13px] text-muted">${cfg.done ? 'לפי מה שעבד, מה שלידים שאלו, וכאבים שעוד לא כתבת עליהם. כ-5 דקות.' : 'הנושאים כבר בחורים. נשאר לעבור על הפריטים ולתזמן.'}</small>
         </span>
         <${Button} onClick=${() => (cfg.done ? onNextWeek() : go({ view: 'step', screen: 'topics' }))}>${cfg.done ? `להכין את שבוע ${week + 1}` : 'להמשיך'}<${Icon} name="arrow-left" size=${17} /><//>
       </div>
       <label class="mt-3 flex cursor-pointer items-center justify-between gap-3 border-t border-line pt-3 text-[14px]">
-        <span><b>להכין לבד כל מוצאי שבת</b><small class="block text-[13px] text-muted">טיוטה מחכה ביום ראשון בבוקר, עם התראה. שום דבר לא יוצא בלי האישור שלך.</small></span>
+        <span><b>להכין לבד כל מוצאי שבת</b><small class="block text-[13px] text-muted">טיוטה מחכה ביום ראשון בבוקר, עם התראה, עד שבוע ${MAX_WEEKS}. שום דבר לא יוצא בלי האישור שלך.</small></span>
         <${Toggle} on=${!!cfg.autoWeek} onChange=${(v) => setCfg({ autoWeek: v })} label="הכנה אוטומטית של השבוע הבא" />
       </label>
     </section>`}

@@ -6,7 +6,7 @@
 import { html, useState, useEffect, useRef, Icon, PencilCheck, PencilLine, cx, confetti, money } from './lib.js';
 import { Button, Note, StepHeading, SharkAvatar, SubStep } from './components.js';
 import { Chips, inputCls, Tag } from './ui.js';
-import { USER, BRAND, META, PAGE_LINK, PLATFORMS, STYLES, TEMPLATES, RECOMMENDED_TEMPLATE, TYPES, FORMATS, TOPICS, TOPIC_CHOICES, TOPIC_WHY, LAST_WEEK_STATS, OFFER, PARTS, PART_HINT, partLabel, partNo, weekDays, weekRange, MESSAGE_LINES, BIOS, WORDS, DESIGN, g } from './data.js';
+import { USER, BRAND, META, PAGE_LINK, PLATFORMS, STYLES, TEMPLATES, RECOMMENDED_TEMPLATE, TYPES, FORMATS, TOPICS, TOPIC_CHOICES, TOPIC_WHY, LAST_WEEK_STATS, OFFER, PARTS, PART_HINT, MAX_WEEKS, partLabel, partNo, weekDays, weekRange, MESSAGE_LINES, BIOS, WORDS, DESIGN, g } from './data.js';
 import { Canvas, Slide, ReelFrame, Flyer, PostImage, POST_LAYOUTS, POST_LOOK, LAYOUTS, FLYER_FONTS, FLYER_BG, FLYER_SIZES, FLYER_POS, FLYER_LOOK, palette } from './art.js';
 import { words, LIMITS, topicOf, checkText, postVersions, postQuote, CHANGES, changeOptions, carouselSlides, slideFields, reelScript, fmtSec } from './content.js';
 import { MetaSheet } from './publish.js';
@@ -70,14 +70,14 @@ export function Opening({ cfg, flags }) {
   const t = tplOf(cfg);
   const p = palOf(cfg, flags);
   const photo = photoOf(cfg, flags) || USER.photo;
-  return html`<div class="mx-auto grid max-w-[1120px] items-center gap-8 px-4 py-6 md:grid-cols-[1.1fr_0.9fr] md:gap-12 md:px-8 md:py-8">
+  return html`<div class="mx-auto grid max-w-[1120px] items-center gap-6 px-4 py-4 md:grid-cols-[1.1fr_0.9fr] md:gap-12 md:px-8 md:py-5">
     <div>
       <${StepHeading} n="10" eyebrow="שלב 10 · מביאים לקוחות" title=${['שבוע של תוכן, ופלייר אחד, ', 'מוכנים לפרסום', '']} />
-      <p class="mb-5 max-w-[46ch] text-[18px] text-ink">הכרישים כותבים ומעצבים לך שבוע של תוכן, מתוך מה שכבר בנית. ${g('אתה מאשר', 'את מאשרת')}, והתוכן יוצא בזמן שקבעת.</p>
-      <ol class="fb-panel mb-4 flex flex-col !p-2">
-        ${PARTS.map((name, i) => html`<li key=${name} class=${cx('flex items-center gap-3 rounded-xl px-3 py-2', i % 2 === 0 && 'bg-canvas/60')}>
-          <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-100 font-display text-[15px] font-bold text-brand-600">${i + 1}</span>
-          <b class="w-[118px] shrink-0 text-[16px]">${name}</b>
+      <p class="-mt-1 mb-3 max-w-[46ch] text-[17px] text-ink">הכרישים כותבים ומעצבים לך שבוע של תוכן, מתוך מה שכבר בנית. ${g('אתה מאשר', 'את מאשרת')}, והתוכן יוצא בזמן שקבעת.</p>
+      <ol class="fb-panel mb-3 flex flex-col !p-1.5">
+        ${PARTS.map((name, i) => html`<li key=${name} class=${cx('flex items-center gap-3 rounded-lg px-3 py-1.5', i % 2 === 0 && 'bg-canvas/60')}>
+          <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-100 font-display text-[14px] font-bold text-brand-600">${i + 1}</span>
+          <b class="w-[118px] shrink-0 text-[15px]">${name}</b>
           <span class="min-w-0 text-[14px] text-muted">${PART_HINT[i]}</span>
         </li>`)}
       </ol>
@@ -86,10 +86,10 @@ export function Opening({ cfg, flags }) {
         <span class="flex items-center gap-1.5"><${Icon} name="file-check-2" size=${17} class="text-brand-600" />3 פריטים ביומן, ופלייר לשלב 11</span>
       </p>
     </div>
-    <div class="relative mx-auto h-[400px] w-full max-w-[420px] max-md:hidden" aria-hidden="true">
-      <div class="absolute start-2 top-0 w-[150px] rotate-[-4deg]"><${Canvas} w=${1080} h=${1920}><${ReelFrame} t=${t} p=${p} hook=${TOPICS.o1.hooks[0]} caption="צעד אחד" photo=${photo} /><//></div>
-      <div class="absolute end-0 top-6 w-[210px] rotate-[3deg]"><${Canvas}><${Slide} s=${{ kind: 'cover', opener: 'טיפ לשבוע', title: TOPICS.v1.hooks[1], sub: '', swipe: 'החליקו לצד' }} t=${t} p=${p} total=${6} noLogo=${flags.noLogo} /><//></div>
-      <div class="absolute bottom-6 start-16 w-[200px] rotate-[-1deg]"><${Canvas}><${Flyer} t=${t} p=${p} layout="circle" photo=${photo} noLogo=${flags.noLogo} /><//></div>
+    <div class="relative mx-auto h-[360px] w-full max-w-[400px] max-md:hidden" aria-hidden="true">
+      <div class="absolute start-2 top-0 w-[136px] rotate-[-4deg]"><${Canvas} w=${1080} h=${1920}><${ReelFrame} t=${t} p=${p} hook=${TOPICS.o1.hooks[0]} caption="צעד אחד" photo=${photo} /><//></div>
+      <div class="absolute end-0 top-4 w-[190px] rotate-[3deg]"><${Canvas}><${Slide} s=${{ kind: 'cover', opener: 'טיפ לשבוע', title: TOPICS.v1.hooks[1], sub: '', swipe: 'החליקו לצד' }} t=${t} p=${p} total=${6} noLogo=${flags.noLogo} /><//></div>
+      <div class="absolute bottom-5 start-14 w-[180px] rotate-[-1deg]"><${Canvas}><${Flyer} t=${t} p=${p} layout="circle" photo=${photo} noLogo=${flags.noLogo} /><//></div>
       <span class="hand absolute -bottom-2 end-4 rotate-[-4deg] whitespace-nowrap text-[26px]">בעיצוב שלך, בקול שלך</span>
     </div>
   </div>`;
@@ -110,15 +110,14 @@ export function ChannelScreen({ cfg, setCfg, flags, notify }) {
   const anyMeta = on.includes('ig') || on.includes('fb');
   return html`<div class="mx-auto max-w-[1120px] px-4 py-4 md:px-8 md:py-5">
     <${StepHeading} n=${partNo('channel')} eyebrow=${partLabel('channel')} title=${['איפה ', 'מפרסמים', '']} sub=${`בוחרים ערוצים, ואז איך הפריטים יוצאים: לבד בזמן שנקבע, או ש${g('אתה מפרסם', 'את מפרסמת')} בעצמך.`} />
-    <div class="grid items-start gap-4 md:grid-cols-2">
+    <div class="flex flex-col gap-3">
       <section class="fb-panel !p-4">
-        <${SubStep} n="1">איפה הקהל שלך<//>
-        <p class="mb-3 flex items-start gap-2 rounded-xl bg-brand-50 p-2.5 text-[14px]"><${SharkAvatar} size=${28} /><span class="min-w-0">לפי <b>צייד הלקוחות</b> (שלב 4): ${flags.b2b ? 'הקהל שלך הוא עסקים.' : `הקהל שלך ב${USER.where}.`} ההמלצה: <b>${rec.map((id) => PLATFORMS.find((x) => x.id === id).label).join(' ו')}</b>.</span></p>
-        <ul class="flex flex-col gap-2">
+        <${SubStep} n="1" class="!mb-2" aside=${html`<p class="flex items-center gap-2 rounded-xl bg-brand-50 px-2.5 py-1 text-[14px]"><${SharkAvatar} size=${24} /><span class="min-w-0">לפי <b>צייד הלקוחות</b> (שלב 4): ${flags.b2b ? 'הקהל שלך הוא עסקים.' : `הקהל שלך ב${USER.where}.`} ההמלצה: <b>${rec.map((id) => PLATFORMS.find((x) => x.id === id).label).join(' ו')}</b>.</span></p>`}>איפה הקהל שלך<//>
+        <ul class="grid gap-2 sm:grid-cols-3">
           ${PLATFORMS.map((pl) => {
             const checked = on.includes(pl.id);
             return html`<li key=${pl.id}>
-              <label class=${cx('flex cursor-pointer items-center gap-2.5 rounded-xl border-[1.5px] bg-white px-3 py-2', checked ? 'border-brand-600 bg-brand-50' : 'border-line hover:border-brand-300')}>
+              <label class=${cx('flex h-full cursor-pointer items-center gap-2.5 rounded-xl border-[1.5px] bg-white px-3 py-2', checked ? 'border-brand-600 bg-brand-50' : 'border-line hover:border-brand-300')}>
                 <input type="checkbox" class="h-5 w-5 shrink-0 accent-brand-600" checked=${checked} onChange=${() => flip(pl.id)} />
                 <span class="text-brand-600"><${Icon} name=${pl.icon} size=${19} /></span>
                 <span class="min-w-0"><b class="flex flex-wrap items-center gap-1.5 text-[15px]">${pl.label}${rec.includes(pl.id) && html`<${Tag} tone="blue">מומלץ<//>`}</b><small class="block text-[13px] leading-snug text-muted">${sub[pl.id]}</small></span>
@@ -128,7 +127,7 @@ export function ChannelScreen({ cfg, setCfg, flags, notify }) {
         </ul>
       </section>
       <section class=${cx('fb-panel !p-4', !anyMeta && 'opacity-60')}>
-        <${SubStep} n="2">איך מפרסמים<//>
+        <${SubStep} n="2" class="!mb-2">איך מפרסמים<//>
         ${!anyMeta
           ? html`<p class="text-[14px] text-muted">לינקדאין בלבד: כל פריט מגיע עם טקסט להעתקה, קבצים ותזכורת ביומן.</p>`
           : cfg.connect === 'meta'
@@ -140,7 +139,7 @@ export function ChannelScreen({ cfg, setCfg, flags, notify }) {
                 </ul>
                 <button type="button" class="text-[14px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => (setCfg({ connect: null, sched: Object.fromEntries(Object.entries(cfg.sched).filter(([, v]) => v?.status !== 'scheduled')) }), notify('החיבור נותק. הפוסטים שתוזמנו בוטלו', 'unplug'))}>ניתוק</button>
               </div>`
-            : html`<div class="flex flex-col gap-2">
+            : html`<div class="grid gap-2 sm:grid-cols-2">
                 <button type="button" class=${cx('lp-option !items-start', cfg.connect === 'meta' && '!border-brand-600 !bg-brand-50')} onClick=${() => setMeta(true)}>
                   <span class="mt-0.5 text-brand-600"><${Icon} name="plug-zap" size=${19} /></span>
                   <span class="min-w-0"><b class="flex flex-wrap items-center gap-1.5 text-[15px]">לחבר את אינסטגרם ופייסבוק<${Tag} tone="blue">מומלץ<//></b><small class="block text-[13px] leading-snug text-muted">פעם אחת דרך Meta, וכל פריט שמאשרים יוצא לבד בזמן שנקבע</small></span>
@@ -163,15 +162,20 @@ export function ChannelScreen({ cfg, setCfg, flags, notify }) {
 
 // ---------- part 2: the look ----------
 
-function TemplateCard({ t, cfg, flags, on, onPick }) {
-  const p = palette(t, cfg.colors, flags.noLogo);
-  return html`<button type="button" onClick=${onPick} aria-pressed=${on} class=${cx('group flex items-center gap-3 rounded-2xl border-[1.5px] bg-white p-1.5 text-start cursor-pointer', on ? 'border-brand-600 ring-4 ring-brand-100' : 'border-line hover:border-brand-300')}>
-    <span class="block w-[118px] shrink-0"><${Canvas} round=${8}><${Slide} s=${{ kind: 'cover', opener: USER.business, title: TOPICS.v1.hooks[1], sub: '' }} t=${t} p=${p} noLogo=${flags.noLogo} /><//></span>
-    <span class="min-w-0 px-1 pb-0.5">
-      <b class="flex items-center gap-1.5 text-[14px]">${t.name}${t.id === RECOMMENDED_TEMPLATE && html`<${Tag} tone="blue">מומלץ<//>`}</b>
-      <small class="block text-[12px] text-muted">${t.mood} · נבנתה ל${t.forWho}</small>
-    </span>
-  </button>`;
+// The chosen template, big enough to judge: the same look in the post image, a carousel slide and a reel.
+function TemplatePreview({ t, p, photo, flags }) {
+  const fig = (w, label, art) => html`<figure class=${cx('m-0 shrink-0', w)}>${art}<figcaption class="mt-0.5 text-center text-[12px] text-muted">${label}</figcaption></figure>`;
+  return html`<div class="flex flex-wrap items-end gap-3 rounded-2xl border-[1.5px] border-brand-600 bg-white p-2.5 sm:flex-nowrap">
+    ${fig('w-[calc(38%-8px)] sm:w-[146px]', 'פוסט', html`<${Canvas} round=${8}><${PostImage} t=${t} p=${p} photo=${photo} quote=${postQuote(TOPICS.v1)} noLogo=${flags.noLogo} /><//>`)}
+    ${fig('w-[calc(38%-8px)] sm:w-[146px]', 'קרוסלה', html`<${Canvas} round=${8}><${Slide} s=${{ kind: 'cover', opener: USER.business, title: TOPICS.v1.hooks[1], sub: '', swipe: 'החליקו לצד' }} t=${t} p=${p} total=${6} noLogo=${flags.noLogo} /><//>`)}
+    ${fig('w-[calc(24%-8px)] sm:w-[103px]', 'רילס', html`<${Canvas} w=${1080} h=${1920} round=${8}><${ReelFrame} t=${t} p=${p} hook=${TOPICS.v1.hooks[0]} caption="צעד אחד" photo=${photo} /><//>`)}
+    <div class="min-w-0 flex-1 self-center sm:ps-2">
+      <b class="flex flex-wrap items-center gap-1.5 font-display text-[22px] leading-tight">${t.name}${t.id === RECOMMENDED_TEMPLATE && html`<${Tag} tone="blue">מומלץ<//>`}</b>
+      <p class="mt-1 text-[14px]">${t.mood}</p>
+      <p class="text-[13px] text-muted">נבנתה ל${t.forWho}</p>
+      <p class="mt-2 text-[13px] text-muted">גופן ${t.font}</p>
+    </div>
+  </div>`;
 }
 
 export function LookScreen({ cfg, setCfg, flags, notify }) {
@@ -179,25 +183,23 @@ export function LookScreen({ cfg, setCfg, flags, notify }) {
   const list = TEMPLATES.filter((x) => x.style === cfg.style);
   const photo = photoOf(cfg, flags);
   const samples = cfg.voice.split(/\n\s*\n/).filter((x) => x.trim()).length;
-  return html`<div class="mx-auto max-w-[1120px] px-4 py-4 md:px-8 md:py-5">
+  return html`<div class="mx-auto max-w-[1120px] px-4 py-4 md:px-8 md:py-3">
     <${StepHeading} n=${partNo('look')} eyebrow=${partLabel('look')} title=${['איך התוכן ', 'ייראה', '']} sub="כבר בחרנו תבנית שמתאימה לעסק. אם היא נראית לך, פשוט ממשיכים." />
     <div class="grid items-start gap-4 md:grid-cols-[1fr_300px]">
       <section class="fb-panel !p-4">
         <${SubStep} n="1" aside=${html`<small class="text-[12px] text-muted">8 סגנונות, 10 תבניות</small>`}>סגנון<//>
-        <div class="mb-3 grid grid-cols-2 gap-1.5 sm:grid-cols-4" role="radiogroup">
+        <div class="mb-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4" role="radiogroup">
           ${STYLES.map((st) => {
             const ts = TEMPLATES.filter((x) => x.style === st.id);
             const on = cfg.style === st.id;
-            return html`<button key=${st.id} type="button" role="radio" aria-checked=${on} onClick=${() => setCfg({ style: st.id, template: ts[0].id })} class=${cx('flex items-center justify-between gap-2 rounded-xl border-[1.5px] bg-white px-2.5 py-2 text-start cursor-pointer', on ? 'border-brand-600 bg-brand-50' : 'border-line hover:border-brand-300')}>
+            return html`<button key=${st.id} type="button" role="radio" aria-checked=${on} onClick=${() => setCfg({ style: st.id, template: ts[0].id })} class=${cx('flex items-center justify-between gap-2 rounded-xl border-[1.5px] bg-white px-2.5 py-1.5 text-start cursor-pointer', on ? 'border-brand-600 bg-brand-50' : 'border-line hover:border-brand-300')}>
               <span class="min-w-0"><b class="block truncate text-[14px] leading-tight">${st.label}</b><small class="text-[12px] text-muted">${ts.length === 1 ? 'תבנית אחת' : `${ts.length} תבניות`}</small></span>
               <span class="flex shrink-0 -space-x-1.5 space-x-reverse" aria-hidden="true">${[ts[0].own.bg, ts[0].own.a, ts[0].own.b].map((c) => html`<i class="h-4 w-4 rounded-full ring-2 ring-white" style=${{ background: c }}></i>`)}</span>
             </button>`;
           })}
         </div>
-        <${SubStep} n="2">תבנית<//>
-        <div class="grid gap-3 sm:grid-cols-2">
-          ${list.map((x) => html`<${TemplateCard} key=${x.id} t=${x} cfg=${cfg} flags=${flags} on=${x.id === cfg.template} onPick=${() => setCfg({ template: x.id })} />`)}
-        </div>
+        <${SubStep} n="2" aside=${list.length > 1 && html`<${Mini} options=${list.map((x) => ({ id: x.id, label: x.name }))} value=${cfg.template} onChange=${(v) => setCfg({ template: v })} />`}>תבנית<//>
+        <${TemplatePreview} t=${tplOf(cfg)} p=${p} photo=${photo || USER.photo} flags=${flags} />
       </section>
       <div class="flex flex-col gap-4">
         <section class="fb-panel !p-4">
@@ -749,16 +751,30 @@ export function FlyerScreen({ cfg, setCfg, flags }) {
 // ---------- the finish ----------
 
 // The next week, right from the finish: the shark already picked 3 topics.
+// After week 4 the streak is done: no week 5, and the auto-prepare stops.
+export function StreakEnd({ cfg }) {
+  const weeks = [...(cfg.history || []), { week: cfg.week || 1, plan: cfg.plan }];
+  const items = weeks.reduce((n, h) => n + h.plan.length, 0);
+  const leads = (cfg.history || []).reduce((n, h) => n + h.plan.reduce((m, i) => m + (LAST_WEEK_STATS[i.id]?.leads || 0), 0), 0);
+  return html`<section class="fb-panel mb-4 border-[1.5px] border-brand-300 !p-4">
+    <div class="flex flex-wrap items-center gap-3">
+      <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-100 text-brand-600"><${Icon} name="flag" size=${22} /></span>
+      <span class="min-w-0 flex-1"><b class="block text-[17px]">${MAX_WEEKS} שבועות של תוכן, הרצף הושלם</b><small class="block text-[13px] text-muted">${items} פריטים ב-${MAX_WEEKS} שבועות${leads ? `, ${leads} לידים מהתוכן` : ''}. כאן הרצף נגמר, ואין שבוע ${MAX_WEEKS + 1}. כל מה שפורסם נשאר בלוח ובטבלת הלידים.</small></span>
+    </div>
+  </section>`;
+}
+
 function NextWeek({ cfg, setCfg, onNextWeek }) {
   const next = (cfg.week || 1) + 1;
+  if (next > MAX_WEEKS) return html`<${StreakEnd} cfg=${cfg} />`;
   return html`<section class="fb-panel mb-4 border-[1.5px] border-brand-300 !p-4">
     <div class="flex flex-wrap items-center gap-3">
       <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-100 text-brand-600"><${Icon} name="calendar-plus" size=${22} /></span>
-      <span class="min-w-0 flex-1"><b class="block text-[17px]">השבוע הבא, ${weekRange(next)}</b><small class="block text-[13px] text-muted">3 נושאים כבר מחכים: מה שעבד, מה שלידים שאלו, וכאבים שעוד לא כתבת עליהם. כ-5 דקות.</small></span>
+      <span class="min-w-0 flex-1"><b class="block text-[17px]">השבוע הבא, ${weekRange(next)} <span class="text-[14px] font-normal text-muted">· שבוע ${next} מתוך ${MAX_WEEKS}</span></b><small class="block text-[13px] text-muted">3 נושאים כבר מחכים: מה שעבד, מה שלידים שאלו, וכאבים שעוד לא כתבת עליהם. כ-5 דקות.</small></span>
       <${Button} onClick=${onNextWeek}>להכין את שבוע ${next}<${Icon} name="arrow-left" size=${17} /><//>
     </div>
     <label class="mt-3 flex cursor-pointer items-center justify-between gap-3 border-t border-line pt-3 text-[14px]">
-      <span><b>להכין לבד כל מוצאי שבת</b><small class="block text-[13px] text-muted">טיוטה של השבוע הבא מחכה ביום ראשון בבוקר, עם התראה. שום דבר לא יוצא בלי האישור שלך.</small></span>
+      <span><b>להכין לבד כל מוצאי שבת</b><small class="block text-[13px] text-muted">טיוטה של השבוע הבא מחכה ביום ראשון בבוקר, עם התראה, עד שבוע ${MAX_WEEKS}. שום דבר לא יוצא בלי האישור שלך.</small></span>
       <${Toggle} on=${!!cfg.autoWeek} onChange=${(v) => setCfg({ autoWeek: v })} label="הכנה אוטומטית של השבוע הבא" />
     </label>
   </section>`;
@@ -806,8 +822,8 @@ export function Done({ cfg, setCfg, flags, notify, onGrow, onNextWeek }) {
               <span class="relative font-display text-[36px] font-black text-money">${money(1200)}<${PencilLine} color="#12805c" class="absolute inset-x-0 -bottom-1 h-2 w-full" /></span>
             <//>`
           : html`<${Note} tone="gold" tilt=${-2} class="fb-badge-note !pt-10">
-              <span class="fb-note-kicker">רצף</span>
-              <b class="font-display text-[40px] leading-none">${week}</b>
+              <span class="fb-note-kicker">${week >= MAX_WEEKS ? 'הרצף הושלם' : 'רצף'}</span>
+              <b class="font-display text-[40px] leading-none">${week}<span class="text-[22px]"> / ${MAX_WEEKS}</span></b>
               <span class="text-[15px] font-bold">שבועות של תוכן ברצף</span>
             <//>`}
       </div>

@@ -157,6 +157,8 @@ export const WEEK = [
 // The days of the week being planned: week 1 is 8.11-14.11, every next week is 7 days on.
 const dateOf = (n) => (n > 30 ? `${n - 30}.12` : `${n}.11`);
 export const weekDays = (week = WEEK_NO) => WEEK.map((d, i) => ({ ...d, date: dateOf(8 + i + 7 * (week - 1)) }));
+// The content streak stops after 4 weeks: no week 5.
+export const MAX_WEEKS = 4;
 export const weekRange = (week = WEEK_NO) => `${dateOf(8 + 7 * (week - 1))}-${dateOf(14 + 7 * (week - 1))}`;
 export const TYPES = [
   { id: 'value', label: 'ערך', sub: 'טיפ אחד שאפשר ליישם היום', icon: 'lightbulb' },

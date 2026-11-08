@@ -7,7 +7,7 @@
 // the topics, the 3 items and the week plan (2 parts).
 import { html, render, useState, useEffect, useRef, Icon } from './lib.js';
 import { Logo, PartnerBubble, Progress, TopBar, BottomBar, Status, PrimaryButton, Button, Toast } from './components.js';
-import { STEP, ITEM_SCREENS, SCREEN_NAME, START_PLAN, NEXT_PLANS, flowOf, setWeekNo, g } from './data.js';
+import { STEP, ITEM_SCREENS, SCREEN_NAME, START_PLAN, NEXT_PLANS, MAX_WEEKS, flowOf, setWeekNo, g } from './data.js';
 import { loadState, saveState, freshState } from './state.js';
 import { Opening, ChannelScreen, LookScreen, TopicsScreen, ItemScreen, FlyerScreen, Done, itemState } from './step.js';
 import { WeekScreen, GrowSheet, ConfirmAll, targetsOf } from './publish.js';
@@ -114,6 +114,7 @@ function App({ view: shellView, onViewChange }) {
   // comes in. The channels, the look and the flyer stay as they are.
   const startNextWeek = () => {
     const week = (state.cfg.week || 1) + 1;
+    if (week > MAX_WEEKS) return; // the streak ends after week 4
     setState((s) => {
       const c = s.cfg;
       const plan = NEXT_PLANS[(week - 2) % NEXT_PLANS.length].map((i) => ({ ...i }));
@@ -130,6 +131,16 @@ function App({ view: shellView, onViewChange }) {
     setDev(false);
     if (id === 'home') go({ view: 'home' });
     else if (id === 'nextweek') startNextWeek();
+    else if (id === 'lastweek') {
+      // demo: jump to the end of week 4, with weeks 1-3 in the history
+      setState((s) => {
+        const c = s.cfg;
+        const past = [1, 2, 3].map((w) => ({ week: w, plan: (w === 1 ? c.plan : NEXT_PLANS[(w - 2) % NEXT_PLANS.length]).map((i) => ({ ...i })), sched: {} }));
+        const plan = NEXT_PLANS[2 % NEXT_PLANS.length].map((i) => ({ ...i }));
+        return { ...s, cfg: { ...c, week: MAX_WEEKS, history: past, plan, sched: Object.fromEntries(plan.map((i) => [i.id, { status: 'scheduled' }])), done: true, autoWeek: false } };
+      });
+      go({ view: 'step', screen: 'done' });
+    }
     else {
       if (id in flow.partOf) setMaxPart((m) => Math.max(m, flow.partOf[id]));
       go({ view: 'step', screen: id });
