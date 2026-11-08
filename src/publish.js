@@ -1,4 +1,4 @@
-// Part 6 of step 10: the week, item by item, a preview per platform, and publishing.
+// The last part of step 10: the week plan, item by item, a preview per platform, and publishing.
 // Instagram has no scheduling of its own, so FlowBiz keeps the queue and publishes at
 // the time; Facebook gets the time with the post (Pages only). Nothing goes out without
 // an explicit "לתזמן" from the user. Facebook groups and LinkedIn are copy-and-remind.
@@ -6,7 +6,7 @@
 import { html, useState, Icon, cx } from './lib.js';
 import { Button, StepHeading, SharkAvatar } from './components.js';
 import { Sheet, Field, inputCls, Tag } from './ui.js';
-import { USER, META, WEEK, BRAND, postLink, partLabel, g } from './data.js';
+import { USER, META, BRAND, postLink, partLabel, partNo, weekDays, g } from './data.js';
 import { Canvas, Slide, ReelFrame } from './art.js';
 import { topicOf, postQuote, reelCaption, carouselCaption } from './content.js';
 import { tplOf, palOf, photoOf, itemState, captionOf, fmtOf, typeOf, dayOf } from './step.js';
@@ -124,7 +124,7 @@ function ItemSheet({ cfg, setCfg, flags, item, notify, onClose }) {
       </div>
       <div class="min-w-0">
         <div class="mb-3 grid grid-cols-2 gap-2">
-          <${Field} label="יום" class="!mb-0"><select class=${inputCls} value=${item.day} onChange=${(e) => setPlan({ day: e.target.value })}>${WEEK.map((d) => html`<option value=${d.id}>${d.label} ${d.date}</option>`)}</select><//>
+          <${Field} label="יום" class="!mb-0"><select class=${inputCls} value=${item.day} onChange=${(e) => setPlan({ day: e.target.value })}>${weekDays().map((d) => html`<option value=${d.id}>${d.label} ${d.date}</option>`)}</select><//>
           <${Field} label="שעה" class="!mb-0"><input type="time" class=${inputCls} value=${item.time} onChange=${(e) => setPlan({ time: e.target.value })} /><//>
         </div>
         <p class="mb-1 text-[14px] font-bold">לאן</p>
@@ -135,7 +135,7 @@ function ItemSheet({ cfg, setCfg, flags, item, notify, onClose }) {
               : html`<div class="flex items-center gap-2 rounded-xl bg-canvas p-2 text-[14px]"><${Icon} name=${x.icon} size=${16} class="text-muted" /><b>${x.label}</b><button type="button" class="ms-auto inline-flex items-center gap-1 text-[13px] font-bold text-brand-600 cursor-pointer" onClick=${() => notify('הטקסט הועתק. הקבצים ירדו לתיקיית ההורדות', 'copy')}><${Icon} name="copy" size=${13} />העתקה והורדה</button></div>`}
           </li>`)}
         </ul>
-        ${noVideo && html`<p class="mb-2 rounded-xl bg-warn-50 p-2.5 text-[14px] text-warn">לרילס עוד אין סרטון. אפשר להעלות בחלק "כתיבת התוכן", או לשים תזכורת לצלם ולפרסם.</p>`}
+        ${noVideo && html`<p class="mb-2 rounded-xl bg-warn-50 p-2.5 text-[14px] text-warn">לרילס עוד אין סרטון. אפשר להעלות בפריט עצמו, בכתיבת התוכן, או לשים תזכורת לצלם ולפרסם.</p>`}
         ${!st.approved && !noVideo && html`<p class="mb-2 rounded-xl bg-warn-50 p-2.5 text-[14px] text-warn">הפריט עוד לא אושר בחלק "כתיבת התוכן".</p>`}
         ${s?.status === 'failed' && html`<div class="mb-2 rounded-xl bg-error-50 p-2.5 text-[14px] text-error"><b class="block">התזמון הקודם נכשל</b>אינסטגרם לא קיבל את הפריט (חיבור שפג, או מגבלת הפרסום היומית). ננסה שוב לבד, ואם לא, ${g('תקבל', 'תקבלי')} התראה.<button type="button" class="ms-1 font-bold underline underline-offset-2 cursor-pointer" onClick=${() => (setS({ status: 'scheduled', to: s.to, retried: true }), notify('מתוזמן', 'calendar-check'), onClose())}>לנסות עכשיו</button></div>`}
         ${topicOf(item).type === 'offer' && html`<p class="flex items-start gap-1.5 text-[13px] text-muted"><${Icon} name="link" size=${14} class="mt-0.5 shrink-0" /><span>הקישור בפוסט מסומן במקור שלו: <b dir="ltr">${postLink(item.id)}</b>. ליד שמגיע ממנו מופיע בטבלה כ"פוסט".</span></p>`}
@@ -167,42 +167,55 @@ export function ConfirmAll({ cfg, setCfg, flags, notify, onClose }) {
   <//>`;
 }
 
-// The week as a list, in the order the items go out. Each row opens the preview and the
-// day and time; the main button at the bottom schedules the whole week.
-export function PublishScreen({ cfg, setCfg, flags, notify }) {
+// The last part: when each item goes out. Day and time are set right in the list, a
+// strip on top shows the week at a glance, and each row opens the preview. The main
+// button at the bottom schedules the whole week.
+export function WeekScreen({ cfg, setCfg, flags, notify }) {
   const [open, setOpen] = useState(null);
   const targets = targetsOf(cfg, flags);
   const direct = targets.filter((x) => x.direct);
   const copy = targets.filter((x) => !x.direct);
   const item = cfg.plan.find((i) => i.id === open);
-  const days = WEEK.map((d) => d.id);
-  const rows = [...cfg.plan].sort((a, b) => days.indexOf(a.day) - days.indexOf(b.day) || a.time.localeCompare(b.time));
+  const days = weekDays();
+  const order = days.map((d) => d.id);
+  const rows = [...cfg.plan].sort((a, b) => order.indexOf(a.day) - order.indexOf(b.day) || a.time.localeCompare(b.time));
+  const setPlan = (id, p) => setCfg({ plan: cfg.plan.map((i) => (i.id === id ? { ...i, ...p } : i)) });
   const chip = (x, on) => html`<span key=${x.id} class=${cx('inline-flex h-7 items-center gap-1 rounded-lg px-2 text-[13px] font-bold', on ? 'bg-money-50 text-money' : 'bg-canvas text-muted ring-1 ring-line')}><${Icon} name=${x.icon} size=${14} />${x.label}</span>`;
-  return html`<div class="mx-auto max-w-[1000px] px-4 py-5 md:px-8 md:py-6">
-    <${StepHeading} n="6" eyebrow=${partLabel(5)} title=${['מתי כל פריט ', 'יוצא', '']} sub=${direct.length ? 'בודקים ימים ושעות. אפשר לפתוח פריט לתצוגה מקדימה ולשנות. כשהכול נראה טוב, "לתזמן את השבוע" בכפתור למטה.' : 'בודקים ימים ושעות. כל פריט נכנס ליומן עם תזכורת, טקסט להעתקה וקבצים להורדה.'} />
-    <div class="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[14px]">
-      ${direct.length > 0 && html`<span class="flex flex-wrap items-center gap-1.5"><b>יוצא לבד:</b>${direct.map((x) => chip(x, true))}</span>`}
-      ${copy.length > 0 && html`<span class="flex flex-wrap items-center gap-1.5"><b>להעתקה ותזכורת:</b>${copy.map((x) => chip(x, false))}</span>`}
+  return html`<div class="mx-auto max-w-[1000px] px-4 py-4 md:px-8 md:py-5">
+    <${StepHeading} n=${partNo('week')} eyebrow=${partLabel('week')} title=${['מתי כל פריט ', 'יוצא', '']} sub=${direct.length ? 'הכריש הציע ימים ושעות שבהם הקהל שלך פעיל. אפשר לשנות כאן, ובסוף "לתזמן את השבוע" בכפתור למטה.' : 'הכריש הציע ימים ושעות. כל פריט נכנס ליומן עם תזכורת, טקסט להעתקה וקבצים להורדה.'} />
+    <div class="mb-3 grid grid-cols-7 overflow-hidden rounded-xl bg-white ring-1 ring-line" aria-hidden="true">
+      ${days.map((d, i) => {
+        const its = cfg.plan.filter((x) => x.day === d.id);
+        return html`<div key=${d.id} class=${cx('flex min-h-[58px] flex-col items-center gap-1 py-1.5', i && 'border-s border-line', its.length && 'bg-brand-50')}>
+          <span class=${cx('text-[12px] font-bold', its.length ? 'text-brand-600' : 'text-muted')}>${d.short} <span class="font-normal">${d.date}</span></span>
+          <span class="flex gap-1">${its.map((x) => html`<span key=${x.id} class="grid h-6 w-6 place-items-center rounded-md bg-brand-600 text-white"><${Icon} name=${fmtOf(x.format).icon} size=${13} /></span>`)}</span>
+        </div>`;
+      })}
     </div>
     <ol class="flex flex-col gap-2">
       ${rows.map((i) => {
-        const d = dayOf(i.day);
+        const t = topicOf(i);
         const f = fmtOf(i.format);
-        return html`<li key=${i.id}>
-          <button type="button" onClick=${() => setOpen(i.id)} class="grid w-full grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2.5 rounded-2xl bg-white p-3 text-start ring-1 ring-line hover:ring-brand-300 cursor-pointer md:flex md:gap-x-4 md:p-4">
-            <span class="w-[92px] shrink-0 rounded-xl bg-canvas py-1.5 text-center"><b class="block text-[15px]">${d.label}</b><small class="block text-[13px] tabular-nums text-muted">${d.date} · ${i.time}</small></span>
-            <span class="min-w-0 flex-1">
-              <span class="flex items-center gap-1.5 text-[13px] font-bold text-muted"><${Icon} name=${f.icon} size=${14} class="text-brand-600" />${f.label} · ${typeOf(topicOf(i).type).label}</span>
-              <b class="block text-[15px] leading-snug">${topicOf(i).title}</b>
-            </span>
-            <span class="col-span-2 flex items-center justify-between gap-3 border-t border-line pt-2 md:contents">
-              <span class="shrink-0">${statusTag(cfg, i)}</span>
-              <span class="inline-flex shrink-0 items-center gap-1 text-[14px] font-bold text-brand-600">תצוגה ושינוי<${Icon} name="chevron-left" size=${16} /></span>
-            </span>
-          </button>
+        return html`<li key=${i.id} class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 rounded-2xl bg-white p-3 ring-1 ring-line md:flex md:gap-x-4">
+          <div class="flex shrink-0 gap-1.5">
+            <select class=${cx(inputCls, '!h-9 !w-auto !px-2 !text-[14px]')} value=${i.day} onChange=${(e) => setPlan(i.id, { day: e.target.value })} aria-label="יום">${days.map((d) => html`<option value=${d.id}>${d.label} ${d.date}</option>`)}</select>
+            <input type="time" class=${cx(inputCls, '!h-9 !w-[92px] !px-2 !text-[14px]')} value=${i.time} onChange=${(e) => setPlan(i.id, { time: e.target.value })} aria-label="שעה" />
+          </div>
+          <span class="min-w-0 flex-1 max-md:col-span-2">
+            <span class="flex items-center gap-1.5 text-[12px] font-bold text-muted"><${Icon} name=${f.icon} size=${13} class="text-brand-600" />${f.label} · ${typeOf(t.type).label}${t.type === 'offer' && html`<span class="font-normal"> · הכי טוב בין 19:00 ל-20:00</span>`}</span>
+            <b class="block truncate text-[15px] leading-snug">${t.title}</b>
+          </span>
+          <span class="flex items-center justify-between gap-3 max-md:col-span-2 md:contents">
+            <span class="shrink-0">${statusTag(cfg, i)}</span>
+            <button type="button" onClick=${() => setOpen(i.id)} class="inline-flex shrink-0 items-center gap-1 text-[14px] font-bold text-brand-600 cursor-pointer hover:underline"><${Icon} name="eye" size=${15} />תצוגה מקדימה</button>
+          </span>
         </li>`;
       })}
     </ol>
+    <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px]">
+      ${direct.length > 0 && html`<span class="flex flex-wrap items-center gap-1.5"><b>יוצא לבד:</b>${direct.map((x) => chip(x, true))}</span>`}
+      ${copy.length > 0 && html`<span class="flex flex-wrap items-center gap-1.5"><b>להעתקה ותזכורת:</b>${copy.map((x) => chip(x, false))}</span>`}
+    </div>
     ${item && html`<${ItemSheet} cfg=${cfg} setCfg=${setCfg} flags=${flags} item=${item} notify=${notify} onClose=${() => setOpen(null)} />`}
   </div>`;
 }

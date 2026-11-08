@@ -95,7 +95,8 @@ export function Typed({ id, text, speed = 26 }) {
 
 // Progress lives only here: one segment per part, completed parts are clickable,
 // the current part shows its position ("סל המוצרים · 2/4").
-export function Progress({ parts, current, maxReached, onJump, done }) {
+// fill: how far into the current part (e.g. item 2 of 3 = 67%).
+export function Progress({ parts, current, maxReached, onJump, done, fill = 55 }) {
   return html`<div class="fb-progress" aria-label="התקדמות השלב">
     <div class="fb-progress-segs">
       ${parts.map((p, i) => {
@@ -103,7 +104,7 @@ export function Progress({ parts, current, maxReached, onJump, done }) {
         return html`<i
           key=${p}
           class=${cx(isDone && 'is-done', i === current && !done && 'is-now')}
-          style=${i === current && !done ? { '--fill': '55%' } : undefined}
+          style=${i === current && !done ? { '--fill': `${fill}%` } : undefined}
           title=${isDone && i !== current ? `חזרה לחלק: ${p}` : undefined}
           onClick=${() => isDone && i !== current && onJump(i)}
         ></i>`;
@@ -454,43 +455,6 @@ export function Toast({ toast, onUndo }) {
 }
 
 export { PencilLine };
-
-// ---------- Where am I: the numbered parts of the step, always visible under the top bar ----------
-// Done parts show a check and can be reopened; the current part is filled; "sub" is the
-// position inside the current part ("פריט 2 מתוך 3"), with one dot per sub-screen.
-export function Stepper({ parts, current, maxReached, done, onJump, sub }) {
-  const state = (i) => (done || (i < current) || (i <= maxReached && i !== current) ? 'done' : i === current ? 'now' : 'next');
-  const dots = sub && html`<span class="inline-flex items-center gap-1" aria-hidden="true">${Array.from({ length: sub.of }, (_, k) => html`<i key=${k} class=${cx('h-1.5 w-1.5 rounded-full', k < sub.at ? 'bg-brand-600' : k === sub.at ? 'bg-[var(--sky)] ring-2 ring-brand-100' : 'bg-line')}></i>`)}</span>`;
-  return html`<nav class="no-print shrink-0 border-b border-line bg-surface/95" aria-label="החלקים של השלב">
-    <ol class="mx-auto hidden max-w-[1120px] items-start px-7 py-3 md:flex">
-      ${parts.map((p, i) => {
-        const s = state(i);
-        const can = s === 'done' && i !== current;
-        return html`<li key=${p} class="flex min-w-0 flex-1 items-start last:flex-none" aria-current=${i === current && !done ? 'step' : undefined}>
-          <button type="button" disabled=${!can} onClick=${() => can && onJump(i)} title=${can ? `חזרה לחלק: ${p}` : undefined}
-            class=${cx('group flex shrink-0 flex-col items-center gap-1 text-center', can ? 'cursor-pointer' : 'cursor-default')}>
-            <span class=${cx('grid h-8 w-8 place-items-center rounded-full font-display text-[15px] font-bold transition-colors',
-              s === 'now' ? 'bg-brand-600 text-white ring-4 ring-brand-100' : s === 'done' ? 'bg-brand-100 text-brand-600 group-hover:bg-brand-200' : 'bg-white text-faint ring-[1.5px] ring-line')}>
-              ${s === 'done' ? html`<${PencilCheck} size=${16} color="#0038b8" weight=${3} />` : i + 1}
-            </span>
-            <span class=${cx('whitespace-nowrap text-[13px] font-bold', s === 'now' ? 'text-brand-600' : s === 'done' ? 'text-ink group-hover:underline' : 'text-faint')}>${p}</span>
-            ${i === current && sub && html`<span class="flex items-center gap-1.5 whitespace-nowrap text-[12px] font-bold text-muted">${dots}${sub.label}</span>`}
-          </button>
-          ${i < parts.length - 1 && html`<span class=${cx('mx-2 mt-4 h-[2px] min-w-4 flex-1 rounded-full', i < current || done ? 'bg-brand-600' : 'bg-line')}></span>`}
-        </li>`;
-      })}
-    </ol>
-    <div class="px-4 py-2.5 md:hidden">
-      <p class="mb-1.5 flex flex-wrap items-center gap-x-2 text-[14px]">
-        <span class="grid h-6 w-6 place-items-center rounded-full bg-brand-600 font-display text-[13px] font-bold text-white">${done ? '✓' : current + 1}</span>
-        <b class="text-brand-600">${done ? 'השלב הושלם' : parts[current]}</b>
-        ${!done && html`<span class="text-[13px] text-muted">חלק ${current + 1} מתוך ${parts.length}</span>`}
-        ${sub && html`<span class="ms-auto flex items-center gap-1.5 text-[13px] font-bold text-muted">${dots}${sub.label}</span>`}
-      </p>
-      <div class="flex gap-1">${parts.map((p, i) => html`<i key=${p} class=${cx('h-1.5 flex-1 rounded-full', state(i) === 'done' ? 'bg-brand-600' : state(i) === 'now' ? 'bg-[var(--sky)]' : 'bg-line')}></i>`)}</div>
-    </div>
-  </nav>`;
-}
 
 // A numbered sub-task inside a screen: "1 · בוחרים פתיח".
 export function SubStep({ n, children, aside, class: cls = '' }) {

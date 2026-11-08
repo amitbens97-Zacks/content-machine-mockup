@@ -6,7 +6,11 @@ const STORE = `flowbiz-cm-state-v1-${GENDER}`;
 export function freshState() {
   return {
     cfg: {
-      // part 1: the channel and the look
+      // the week being made: 1 = the first pass through the step; history = weeks done
+      week: 1,
+      history: [],
+      autoWeek: false, // the shark prepares next week's draft every Saturday night
+      // parts 1-2: channels and the look
       channels: ['ig', 'fb'],
       connect: null, // 'meta' after the Meta sheet, 'manual' for "אפרסם בעצמי"
       fbGroups: true, // the audience is also in Facebook groups: copy and remind, no direct post
@@ -15,14 +19,14 @@ export function freshState() {
       colors: 'brand', // 'brand' = the logo colors, 'own' = the template's palette
       photo: 'landing', // 'landing' = the photo from step 9, 'upload' = a new one
       voice: '',
-      // part 2: the week
+      // the 3 items of the week: topic and format (part 3), day and time (part 5)
       plan: START_PLAN.map((i) => ({ ...i })),
       // part 3: the content, per item
       generated: false,
       items: {},
       // part 4: the flyer
-      flyer: { layout: 'split', price: true, qr: true, swatch: 0, saved: false, edits: {} },
-      // part 5: publishing, per item: { status: 'scheduled' | 'manual' | 'posted', at, to: [] }
+      flyer: { layout: 'split', price: true, qr: true, swatch: 0, saved: false, edits: {}, look: null },
+      // part 5: the week plan, per item: { status: 'scheduled' | 'manual' | 'posted', at, to: [] }
       sched: {},
       done: false,
     },

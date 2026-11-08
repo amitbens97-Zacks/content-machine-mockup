@@ -57,26 +57,62 @@ export function postVersions(t, item) {
 // The image of a post: one quote, up to 26 words.
 export const postQuote = (t) => (t.type === 'offer' ? t.hooks[0] : t.insight);
 
-// Changes the user can ask for. Each one shows "before → after" and waits for "כן".
+// Changes the user can ask for. Each request returns several suggestions, every one
+// shown against the current text; nothing changes until the user picks one.
+// "עוד הצעות" asks for the next set (round 0, 1, ...).
 export const CHANGES = [
   { id: 'shorter', label: 'קצר יותר' },
   { id: 'hook', label: 'פתיח אחר' },
   { id: 'personal', label: 'יותר אישי' },
+  { id: 'ending', label: 'סיום אחר' },
 ];
-export function applyChange(kind, text, t) {
+const PERSONAL = () => [
+  'אני רואה את זה כמעט כל שבוע בקליניקה.',
+  'זו אחת השאלות ששואלים אותי הכי הרבה.',
+  g('כשהתחלתי לעבוד עם חרדה, הופתעתי כמה זה נפוץ.', 'כשהתחלתי לעבוד עם חרדה, הופתעתי כמה זה נפוץ.'),
+  g('גם אני מכיר את זה, לא רק מהקליניקה.', 'גם אני מכירה את זה, לא רק מהקליניקה.'),
+  'אחרי 8 שנים בתחום, זה עדיין הדבר שהכי חשוב לי שתדעו.',
+  g('אני כותב את זה כי זה עולה כמעט בכל פגישה ראשונה.', 'אני כותבת את זה כי זה עולה כמעט בכל פגישה ראשונה.'),
+];
+const ENDINGS = (t) => [
+  t.question,
+  'ספרו לי בתגובות, אני קורא כל אחת.',
+  t.cta,
+  'שלחו את זה למישהו שצריך לשמוע את זה היום.',
+  `רוצים עוד כלים כאלה? ${g('אני מעלה', 'אני מעלה')} אחד בכל שבוע.`,
+  'ואם זה מרגיש מוכר, אתם לא לבד בזה.',
+].filter(Boolean).map((x) => x.replace('אני קורא', g('אני קורא', 'אני קוראת')));
+const paras = (text) => text.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
+export function changeOptions(kind, text, t, round = 0) {
   const lines = text.split('\n');
-  if (kind === 'shorter') return lines.filter((l, i) => i === 0 || (l.trim() && !l.startsWith('למשל'))).slice(0, 4).join('\n\n');
-  if (kind === 'hook') {
-    const i = t.hooks.indexOf(lines[0]);
-    lines[0] = t.hooks[(i + 1) % t.hooks.length];
-    return lines.join('\n');
+  const ps = paras(text);
+  let all = [];
+  if (kind === 'shorter') {
+    const first = (p) => p.split(/(?<=[.?!])\s/)[0];
+    all = [
+      ps.filter((p) => !p.startsWith('למשל')).join('\n\n'),
+      [ps[0], first(ps[1] || ''), ps[ps.length - 1]].filter(Boolean).join('\n\n'),
+      [ps[0], ps[ps.length - 1]].join('\n\n'),
+      [ps[0], ps[1]].filter(Boolean).join('\n\n'),
+      [first(ps[1] || ps[0]), ps[ps.length - 1]].join('\n\n'),
+      [ps[0], first(ps[1] || '')].filter(Boolean).join('\n\n'),
+    ];
+  } else if (kind === 'hook') {
+    const hooks = [...t.hooks, `${t.title.replace(/[?.]$/, '')}?`, `${t.pain}?`, `שאלה שעולה אצלי הרבה: ${t.title.replace(/[?.]$/, '')}`];
+    all = hooks.filter((h) => h !== lines[0]).map((h) => [h, ...lines.slice(1)].join('\n'));
+  } else if (kind === 'personal') {
+    all = PERSONAL().filter((x) => !text.includes(x)).map((x) => [lines[0], '', x, ...lines.slice(1)].join('\n'));
+  } else if (kind === 'ending') {
+    let i = lines.length - 1;
+    while (i > 0 && !lines[i].trim()) i--;
+    all = ENDINGS(t).filter((e) => e !== lines[i]).map((e) => [...lines.slice(0, i), e].join('\n'));
   }
-  if (kind === 'personal') {
-    const add = 'אני רואה את זה כמעט כל שבוע בקליניקה.';
-    if (text.includes(add)) return text;
-    return [lines[0], '', add, ...lines.slice(1)].join('\n');
-  }
-  return text;
+  all = [...new Set(all.filter((x) => x && x !== text))];
+  if (!all.length) return { list: [], more: false };
+  const per = 3;
+  const start = (round * per) % all.length;
+  const list = [...all, ...all].slice(start, start + Math.min(per, all.length));
+  return { list, more: all.length > per };
 }
 
 // ---------- carousel: 5 to 7 slides, 1080x1350 ----------

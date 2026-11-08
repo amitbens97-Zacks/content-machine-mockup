@@ -159,33 +159,93 @@ export function FakeQr({ size = 220, fg = '#141414' }) {
 
 // ---------- the flyer, 1080x1350 (and the same layout on A4 for print) ----------
 // Three layouts of the same photo of the user: "variations" means the same photo in
-// different designs, never a generated face.
+// different designs, never a generated face. With "edit", every text on the flyer is
+// edited in place (click, type, click away); the look comes from "look".
 export const LAYOUTS = [
   { id: 'split', label: 'חצי תמונה' },
   { id: 'circle', label: 'תמונה בעיגול' },
   { id: 'full', label: 'תמונה מלאה' },
 ];
-export function Flyer({ t, p, layout, photo, noLogo, offer = OFFER, price = true, qr = true }) {
+export const FLYER_FONTS = [
+  { id: '', label: 'של התבנית' },
+  { id: 'Rubik', label: 'Rubik' },
+  { id: 'Secular One', label: 'Secular' },
+  { id: 'Varela Round', label: 'Varela' },
+  { id: 'Assistant', label: 'Assistant' },
+];
+export const FLYER_BG = [
+  { id: 'light', label: 'בהיר' },
+  { id: 'dark', label: 'כהה' },
+  { id: 'color', label: 'צבעוני' },
+];
+export const FLYER_SIZES = [
+  { id: 's', label: 'קטן', k: 0.86 },
+  { id: 'm', label: 'רגיל', k: 1 },
+  { id: 'l', label: 'גדול', k: 1.14 },
+];
+export const FLYER_POS = [
+  { id: 'top', label: 'למעלה', v: 'center 18%' },
+  { id: 'center', label: 'במרכז', v: 'center' },
+  { id: 'bottom', label: 'למטה', v: 'center 82%' },
+];
+export const FLYER_LOOK = { bg: 'light', font: '', size: 'm', zoom: 100, pos: 'top', show: { points: true, phone: true, logo: true } };
+// The palette after the background choice.
+export function flyerPalette(p, bg) {
+  if (bg === 'dark') return { ...p, bg: BRAND.dark, ink: '#ffffff', dark: true };
+  if (bg === 'color') return { ...p, bg: p.a, ink: p.onA, a: p.onA, onA: p.a, dark: lum(p.a) < 0.2 };
+  return p;
+}
+
+// The photo in a frame of its own, so zoom and position never spill onto the text.
+function Photo({ src, frame, zoom = 100, pos = 'center' }) {
+  return html`<div style=${{ position: 'absolute', overflow: 'hidden', ...frame }}>
+    <img src=${src} alt="" style=${{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: pos, transform: `scale(${zoom / 100})`, transformOrigin: pos }} />
+  </div>`;
+}
+
+// A text edited in place. Its text is set by hand, never rendered as a child: the browser
+// owns the text while the user types, and a child from the render would be added again.
+function EditText({ k, value, style, tag: Tag, edit }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (el && document.activeElement !== el && el.innerText !== value) el.innerText = value;
+  }, [value]);
+  return html`<${Tag} ref=${ref} class="fly-edit" contentEditable="true" spellcheck="false" style=${style} title="לחיצה כדי לערוך"
+    onKeyDown=${(e) => e.key === 'Enter' && (e.preventDefault(), e.target.blur())}
+    onBlur=${(e) => { const v = e.target.innerText.trim(); if (v && v !== value) edit(k, v); else e.target.innerText = value; }} />`;
+}
+
+export function Flyer({ t, p: base, layout, photo, noLogo, offer = OFFER, price = true, qr = true, look = FLYER_LOOK, edit }) {
+  const L = { ...FLYER_LOOK, ...look, show: { ...FLYER_LOOK.show, ...(look?.show || {}) } };
+  const p = flyerPalette(base, L.bg);
+  const k = (FLYER_SIZES.find((x) => x.id === L.size) || FLYER_SIZES[1]).k;
+  const font = L.font || t.font;
+  const pos = (FLYER_POS.find((x) => x.id === L.pos) || FLYER_POS[0]).v;
   const full = layout === 'full';
   const textColor = full ? '#ffffff' : p.ink;
+  // An editable text: in place on the flyer, saved when the user clicks away.
+  const E = (key, value, style, Tag = 'span') => (edit
+    ? html`<${EditText} key=${key} k=${key} value=${value} style=${style} tag=${Tag} edit=${edit} />`
+    : html`<${Tag} style=${style}>${value}<//>`);
   const texts = html`
-    <h1 style=${{ font: `800 ${layout === 'split' ? 86 : 96}px/1.08 '${t.font}', Rubik`, margin: 0 }}><span style=${full ? {} : hl(t, p)}>${offer.title}</span></h1>
-    <p style=${{ font: `600 44px/1.3 Assistant`, margin: 0, opacity: 0.9 }}>${offer.sub}</p>
-    <ul style=${{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: '16px' }}>
-      ${offer.points.map((x) => html`<li style=${{ display: 'flex', gap: '16px', alignItems: 'center', font: `600 38px/1.25 Assistant` }}><svg width="40" height="40" viewBox="0 0 24 24" style="flex:none"><path d="M4 12.5l5 5L20 6.5" fill="none" stroke=${full ? '#fff' : p.a} stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" /></svg>${x}</li>`)}
-    </ul>
-    ${price && html`<p style=${{ margin: 0, font: `800 54px Rubik` }}>${offer.price} <span style=${{ font: `600 34px Assistant`, opacity: 0.85 }}>· ${offer.terms}</span></p>`}
-    <span style=${{ alignSelf: 'flex-start', padding: '20px 40px', borderRadius: '999px', background: full ? '#fff' : p.a, color: full ? p.ink : p.onA, font: `800 ${layout === 'split' ? 34 : 42}px Rubik` }}>${offer.cta}</span>`;
+    <h1 style=${{ font: `800 ${Math.round((layout === 'split' ? 86 : 96) * k)}px/1.08 '${font}', Rubik`, margin: 0 }}>${E('title', offer.title, full || L.bg === 'color' ? {} : hl(t, p))}</h1>
+    ${E('sub', offer.sub, { font: `600 ${Math.round(44 * k)}px/1.3 Assistant`, margin: 0, opacity: 0.9, display: 'block' }, 'p')}
+    ${L.show.points && html`<ul style=${{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: '16px' }}>
+      ${offer.points.map((x, i) => html`<li key=${i} style=${{ display: 'flex', gap: '16px', alignItems: 'center', font: `600 ${Math.round(38 * k)}px/1.25 Assistant` }}><svg width="40" height="40" viewBox="0 0 24 24" style="flex:none"><path d="M4 12.5l5 5L20 6.5" fill="none" stroke=${full ? '#fff' : p.a} stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" /></svg>${E(`points.${i}`, x, {})}</li>`)}
+    </ul>`}
+    ${price && html`<p style=${{ margin: 0, font: `800 ${Math.round(54 * k)}px Rubik` }}>${offer.price} <span style=${{ font: `600 34px Assistant`, opacity: 0.85 }}>· ${offer.terms}</span></p>`}
+    <span style=${{ alignSelf: 'flex-start', padding: '20px 40px', borderRadius: '999px', background: full ? '#fff' : p.a, color: full ? p.ink : p.onA, font: `800 ${Math.round((layout === 'split' ? 34 : 42) * k)}px Rubik` }}>${E('cta', offer.cta, {})}</span>`;
   const foot = html`<div style=${{ position: 'absolute', right: '80px', left: layout === 'split' ? '530px' : '80px', bottom: '64px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '30px', zIndex: 2 }}>
     <div style=${{ display: 'grid', gap: '10px' }}>
-      <${Brand} p=${p} noLogo=${noLogo} light=${full} size=${70} />
-      <span style=${{ font: `700 36px Rubik`, color: textColor, direction: 'ltr', textAlign: 'right' }}>${USER.phone}</span>
+      <${Brand} p=${p} noLogo=${noLogo || !L.show.logo} light=${full} size=${70} />
+      ${L.show.phone && html`<span style=${{ font: `700 36px Rubik`, color: textColor, direction: 'ltr', textAlign: 'right' }}>${USER.phone}</span>`}
     </div>
     ${qr && html`<div style=${{ display: 'grid', justifyItems: 'center', gap: '8px' }}><${FakeQr} size=${layout === 'split' ? 150 : 170} />${layout !== 'split' && html`<span style=${{ font: `600 24px Assistant`, color: textColor, direction: 'ltr' }}>${PAGE_LINK}</span>`}</div>`}
   </div>`;
   if (layout === 'split')
     return html`<div style=${box(p, t)}>
-      <img src=${photo} alt="" style=${{ position: 'absolute', top: 0, left: 0, width: '44%', height: '100%', objectFit: 'cover' }} />
+      <${Photo} src=${photo} zoom=${L.zoom} pos=${pos} frame=${{ top: 0, left: 0, width: '44%', height: '100%' }} />
       <div style=${{ position: 'absolute', top: 0, left: '44%', width: '14px', height: '100%', background: p.a }}></div>
       <div style=${{ position: 'absolute', top: '100px', right: '80px', width: '46%', display: 'flex', flexDirection: 'column', gap: '30px', zIndex: 1 }}>${texts}</div>
       ${foot}
@@ -193,13 +253,13 @@ export function Flyer({ t, p, layout, photo, noLogo, offer = OFFER, price = true
   if (layout === 'circle')
     return html`<div style=${box(p, t)}>
       <${Decor} t=${t} p=${p} />
-      <img src=${photo} alt="" style=${{ position: 'absolute', top: '90px', left: '80px', width: '330px', height: '330px', borderRadius: '999px', objectFit: 'cover', border: `12px solid ${p.a}`, zIndex: 1 }} />
+      <${Photo} src=${photo} zoom=${L.zoom} pos=${pos} frame=${{ top: '90px', left: '80px', width: '330px', height: '330px', borderRadius: '999px', border: `12px solid ${p.a}`, zIndex: 1 }} />
       <div style=${{ position: 'absolute', top: '470px', right: '80px', left: '80px', display: 'flex', flexDirection: 'column', gap: '26px', zIndex: 1 }}>${texts}</div>
       <div style=${{ position: 'absolute', top: '150px', right: '80px', width: '520px', font: `700 46px/1.3 Assistant`, zIndex: 1, color: p.a }}>${USER.fullName}<br /><span style=${{ color: p.ink, font: `500 36px Assistant` }}>${USER.role}</span></div>
       ${foot}
     </div>`;
   return html`<div style=${box(p, t)}>
-    <img src=${photo} alt="" style=${{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+    <${Photo} src=${photo} zoom=${L.zoom} pos=${pos} frame=${{ inset: 0 }} />
     <div style=${{ position: 'absolute', inset: 0, background: `linear-gradient(to top, ${p.dark ? p.bg : '#0f1f1e'} 0%, rgba(15,31,30,.82) 52%, rgba(15,31,30,0) 78%)` }}></div>
     <div style=${{ position: 'absolute', right: '80px', left: '80px', bottom: '300px', display: 'flex', flexDirection: 'column', gap: '24px', color: '#fff', zIndex: 1 }}>${texts}</div>
     ${foot}

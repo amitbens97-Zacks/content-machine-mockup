@@ -15,15 +15,33 @@ export const WORDS = 'כריש המילים';
 export const DESIGN = 'כריש העיצוב';
 
 export const STEP = { n: 10, name: 'מכונת תוכן שיווקי', chapterNo: 4, chapter: 'מביאים לקוחות', icon: 'megaphone' };
-// Six parts, one job each. "כתיבת התוכן" has a screen per item of the week.
-export const PARTS = ['ערוצים', 'עיצוב', 'תוכנית לשבוע', 'כתיבת התוכן', 'פלייר', 'תזמון'];
+// Five parts, one job each. The writing comes first, and the week plan (days, times,
+// scheduling) closes the step. "כתיבת התוכן" opens with the 3 topics, then a screen per item.
+export const PARTS = ['ערוצים', 'עיצוב', 'כתיבת התוכן', 'פלייר', 'התוכנית לשבוע'];
+export const PART_HINT = ['איפה מפרסמים', 'איך התוכן ייראה', '3 פריטים, בקול שלך', 'לפנייה החמה בשלב 11', 'מתי כל פריט יוצא'];
 // Screens of the step and the part each one belongs to.
-export const STEP_SCREENS = ['channel', 'look', 'plan', 'item1', 'item2', 'item3', 'flyer', 'publish'];
-export const PART_OF = { channel: 0, look: 1, plan: 2, item1: 3, item2: 3, item3: 3, flyer: 4, publish: 5 };
+export const STEP_SCREENS = ['channel', 'look', 'topics', 'item1', 'item2', 'item3', 'flyer', 'week'];
+export const PART_OF = { channel: 0, look: 1, topics: 2, item1: 2, item2: 2, item3: 2, flyer: 3, week: 4 };
 export const ITEM_SCREENS = ['item1', 'item2', 'item3'];
-// What the main button leads to, in words.
-export const SCREEN_NAME = { channel: 'ערוצים', look: 'עיצוב', plan: 'תוכנית לשבוע', item1: 'פריט 1', item2: 'פריט 2', item3: 'פריט 3', flyer: 'פלייר', publish: 'תזמון', done: 'סיום' };
-export const partLabel = (i) => `חלק ${i + 1} מתוך ${PARTS.length} · ${PARTS[i]}`;
+// From the second week on, the step is only the writing and the plan: the channels,
+// the look and the flyer are already set.
+const WEEK_FLOW = { parts: ['כתיבת התוכן', 'התוכנית לשבוע'], screens: ['topics', 'item1', 'item2', 'item3', 'week'], partOf: { topics: 0, item1: 0, item2: 0, item3: 0, week: 1 } };
+const FIRST_FLOW = { parts: PARTS, screens: STEP_SCREENS, partOf: PART_OF };
+// What the main button leads to, in words ("המשך ל...").
+export const SCREEN_NAME = { channel: 'ערוצים', look: 'עיצוב', topics: 'כתיבת התוכן', item1: 'פריט 1', item2: 'פריט 2', item3: 'פריט 3', flyer: 'פלייר', week: 'תוכנית לשבוע', done: 'סיום' };
+
+// The week the user is working on: 1 is the first pass through the step, 2 and on are
+// the weeks after it. Set by the app on every render.
+export let WEEK_NO = 1;
+export const setWeekNo = (n) => (WEEK_NO = n || 1);
+export const flowOf = (week = WEEK_NO) => (week > 1 ? WEEK_FLOW : FIRST_FLOW);
+export const partNo = (screen) => (screen in flowOf().partOf ? String(flowOf().partOf[screen] + 1) : '');
+export const partLabel = (screen) => {
+  const f = flowOf();
+  const i = f.partOf[screen];
+  if (i === undefined) return `הגדרות התוכן · ${SCREEN_NAME[screen]}`;
+  return `${WEEK_NO > 1 ? `שבוע ${WEEK_NO} · ` : ''}חלק ${i + 1} מתוך ${f.parts.length} · ${f.parts[i]}`;
+};
 
 // The demo user: a therapist with a small private clinic, the same business as in task 4.
 // FlowBiz knows how each user asked to be addressed (זכר / נקבה): ?user=f|m or Shift+D.
@@ -132,6 +150,10 @@ export const WEEK = [
   { id: 'fri', label: 'שישי', short: 'ו׳', date: '13.11' },
   { id: 'sat', label: 'שבת', short: 'ש׳', date: '14.11' },
 ];
+// The days of the week being planned: week 1 is 8.11-14.11, every next week is 7 days on.
+const dateOf = (n) => (n > 30 ? `${n - 30}.12` : `${n}.11`);
+export const weekDays = (week = WEEK_NO) => WEEK.map((d, i) => ({ ...d, date: dateOf(8 + i + 7 * (week - 1)) }));
+export const weekRange = (week = WEEK_NO) => `${dateOf(8 + 7 * (week - 1))}-${dateOf(14 + 7 * (week - 1))}`;
 export const TYPES = [
   { id: 'value', label: 'ערך', sub: 'טיפ אחד שאפשר ליישם היום', icon: 'lightbulb' },
   { id: 'story', label: 'מהניסיון שלי', sub: 'משהו שלמדת בעבודה, לא סיפור על לקוח', icon: 'notebook-pen' },
@@ -211,7 +233,57 @@ export const TOPICS = {
     cta: 'לשיחת היכרות קצרה, בלי עלות',
   },
 };
-export const TOPIC_CHOICES = { value: ['v1', 'v2', 'v3'], story: ['s1', 's2'], offer: ['o1'] };
+// Topics for the weeks after the first. Each comes with the reason it was picked: what
+// worked last week, a question leads asked, or a pain from the client file not used yet.
+Object.assign(TOPICS, {
+  v4: {
+    type: 'value', title: 'מחשבות "מה אם": איך עוצרים את הסחרור', pain: 'מחשבות "מה אם" שלא נגמרות',
+    hooks: ['עוד "מה אם", ועוד אחד, ועוד אחד?', 'לעצור "מה אם" בלי להתווכח איתו', 'לא כל מחשבה צריכה תשובה עכשיו'],
+    insight: 'מחשבת "מה אם" מחפשת ודאות, וכל תשובה שנותנים לה רק מזמינה את השאלה הבאה.',
+    reason: 'לכן ויכוח עם המחשבה לא מרגיע. מה שעוזר הוא לשים לב אליה, ולהחליט לא לענות לה כרגע.',
+    example: 'למשל: "מה אם לא אצליח בראיון מחר?" הופך תוך דקה ל"מה אם לא אמצא עבודה בכלל?".',
+    points: ['לקרוא למחשבה בשם: "זה שוב מה אם"', 'לרשום אותה, ולדחות אותה לזמן הדאגה', 'לחזור למה שעשיתם, גם אם המחשבה עוד שם'],
+    question: 'מה ה"מה אם" שהכי חוזר אצלכם?',
+    cta: 'שמרו לפעם הבאה שזה מתחיל',
+  },
+  v5: {
+    type: 'value', title: 'האם חרדה עוברת לבד?', pain: 'לחכות שהחרדה תעבור מעצמה',
+    hooks: ['"זה יעבור לבד", נכון?', 'השאלה ששואלים אותי הכי הרבה: זה עובר לבד?', 'מתי חרדה עוברת לבד, ומתי לא'],
+    insight: 'לפעמים חרדה נחלשת עם הזמן. אבל כשהיא כבר משנה את סדר היום, היא בדרך כלל רק מתרחבת.',
+    reason: 'הימנעות מרגיעה לרגע, ולכן חוזרים אליה שוב ושוב, עד שהיא הופכת להרגל.',
+    example: 'למשל: מפסיקים לנהוג בכביש מהיר, ואחרי חצי שנה גם נסיעה קצרה בעיר מלחיצה.',
+    points: ['אם החרדה משנה את מה שאתם עושים, זה הזמן לבדוק', 'לא צריך לחכות שיהיה "ממש גרוע"', 'שיחת היכרות לא מחייבת לתהליך'],
+    question: 'מה גרם לכם לחכות, או מה גרם לכם לפנות?',
+    cta: 'שמרו, או שלחו למי שמחכה שזה יעבור',
+  },
+  s3: {
+    type: 'story', title: g('מה אני שואל בפגישה הראשונה, ולמה', 'מה אני שואלת בפגישה הראשונה, ולמה'), pain: 'לא לדעת מה מחכה בפגישה הראשונה',
+    hooks: ['מה קורה בפגישה הראשונה של טיפול בחרדה', g('3 השאלות שאני שואל בפגישה הראשונה', '3 השאלות שאני שואלת בפגישה הראשונה'), 'מפחדים מהפגישה הראשונה? זה מה שקורה בה'],
+    insight: 'בפגישה הראשונה לא צריך לספר הכול. מספיק להבין יחד מה הכי מפריע עכשיו.',
+    reason: g('כשהתחלתי, הייתי שואל המון שאלות. היום אני שואל שלוש, וזה מספיק כדי להתחיל.', 'כשהתחלתי, הייתי שואלת המון שאלות. היום אני שואלת שלוש, וזה מספיק כדי להתחיל.'),
+    example: 'מה הכי קשה לכם השבוע? ממה ויתרתם בגלל החרדה? מה הייתם רוצים לחזור לעשות?',
+    points: ['מה הכי קשה לכם השבוע', 'ממה ויתרתם בגלל החרדה', 'מה הייתם רוצים לחזור לעשות'],
+    question: 'איזו מהשאלות הכי קשה לכם לענות עליה?',
+    cta: 'שמרו לפני הפגישה הראשונה',
+  },
+});
+export const TOPIC_CHOICES = { value: ['v1', 'v2', 'v3', 'v4', 'v5'], story: ['s1', 's2', 's3'], offer: ['o1'] };
+// Why the shark suggests a topic in the weeks after the first.
+export const TOPIC_WHY = {
+  v5: { icon: 'message-circle-question', text: 'שני לידים שאלו את זה השבוע' },
+  s3: { icon: 'bookmark', text: 'בשבוע שעבר, הקרוסלה "מהניסיון שלי" נשמרה הכי הרבה' },
+  o1: { icon: 'gift', text: 'ההצעה שלך, פעם בשבוע' },
+  v4: { icon: 'folder-heart', text: 'כאב מתיק הלקוח שעוד לא כתבת עליו' },
+  s2: { icon: 'folder-heart', text: 'עוד לא כתבת למה בחרת בתחום' },
+  v2: { icon: 'folder-heart', text: 'כאב מתיק הלקוח שעוד לא כתבת עליו' },
+  v3: { icon: 'folder-heart', text: 'כאב מתיק הלקוח שעוד לא כתבת עליו' },
+};
+// How last week's items did (Meta insights, demo numbers).
+export const LAST_WEEK_STATS = {
+  i1: { reach: 640, saves: 22, comments: 9, leads: 1 },
+  i2: { reach: 1180, saves: 38, comments: 6, leads: 0 },
+  i3: { reach: 910, saves: 11, comments: 4, leads: 3 },
+};
 
 // The offer from "בניית הצעה מנצחת" (8), for the flyer.
 export const OFFER = {
@@ -229,6 +301,20 @@ export const START_PLAN = [
   { id: 'i1', day: 'sun', time: '20:30', topic: 'v1', format: 'post' },
   { id: 'i2', day: 'tue', time: '12:30', topic: 's1', format: 'carousel' },
   { id: 'i3', day: 'thu', time: '19:30', topic: 'o1', format: 'reel' },
+];
+// The shark's plan for the next weeks: built from what worked, what leads asked, and
+// pains not used yet. Week 2, then week 3; after that the two repeat in the demo.
+export const NEXT_PLANS = [
+  [
+    { id: 'i1', day: 'sun', time: '20:30', topic: 'v5', format: 'post' },
+    { id: 'i2', day: 'tue', time: '12:30', topic: 's3', format: 'carousel' },
+    { id: 'i3', day: 'thu', time: '19:30', topic: 'o1', format: 'post' },
+  ],
+  [
+    { id: 'i1', day: 'sun', time: '20:30', topic: 'v4', format: 'reel' },
+    { id: 'i2', day: 'tue', time: '12:30', topic: 's2', format: 'carousel' },
+    { id: 'i3', day: 'thu', time: '19:30', topic: 'o1', format: 'carousel' },
+  ],
 ];
 
 // Message line and bio, three versions each (skills pack: "משפט מסר וביו").
