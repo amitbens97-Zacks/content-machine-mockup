@@ -87,6 +87,12 @@
         background: #fff; border: 3px solid var(--color-brand-600, #0038b8); box-shadow: 0 2px 6px rgb(45 62 102 / .25); }
       .no-scrollbar::-webkit-scrollbar { display: none; }
       /* Text edited in place on the flyer (drawn at 1080 wide, so the outline is thick). */
+      .fb-range-ltr { background: linear-gradient(to right, var(--color-brand-600, #0038b8) var(--p), #e3ddd0 var(--p)); }
+      /* The reel trim: two ranges on one bar, only their handles take the pointer. */
+      .fb-trim::-webkit-slider-runnable-track { background: transparent; height: 100%; }
+      .fb-trim::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; width: 14px; height: 48px; border-radius: 4px; background: #ffd23f; cursor: ew-resize; box-shadow: 0 0 0 2px rgba(0,0,0,.35); }
+      .fb-trim::-moz-range-thumb { pointer-events: auto; width: 14px; height: 48px; border: 0; border-radius: 4px; background: #ffd23f; cursor: ew-resize; }
+      .fb-trim::-moz-range-track { background: transparent; }
       .fly-edit { outline: 6px dashed transparent; outline-offset: 10px; border-radius: 8px; cursor: text; transition: outline-color .15s; }
       .fly-edit:hover { outline-color: rgba(143, 179, 239, .9); }
       .fly-edit:focus { outline: 6px solid #8fb3ef; }
@@ -180,7 +186,7 @@
       // makes the browser always fetch the current modules.
       (function () {
         var v = Date.now(), imports = {};
-        ['art', 'components', 'content', 'data', 'devnotes', 'home', 'lib', 'main', 'publish', 'state', 'step', 'ui', 'viewswitch'].forEach(function (m) {
+        ['art', 'components', 'content', 'data', 'devnotes', 'home', 'lib', 'main', 'publish', 'reel', 'state', 'step', 'ui', 'viewswitch'].forEach(function (m) {
           var url = new URL('./src/' + m + '.js', location.href).href;
           imports[url] = url + '?v=' + v;
         });

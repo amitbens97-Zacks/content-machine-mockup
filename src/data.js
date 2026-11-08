@@ -125,18 +125,22 @@ export const STYLES = [
   { id: 'clean', label: 'נקי ומקצועי' },
   { id: 'bold', label: 'נועז ואנרגטי' },
   { id: 'calm', label: 'שקט ויוקרתי' },
+  { id: 'sunny', label: 'אופטימי ומזמין' },
+  { id: 'spirit', label: 'רוחני ומדיטטיבי' },
+  { id: 'editorial', label: 'עריכתי וחד' },
+  { id: 'fresh', label: 'בריא וקליל' },
 ];
 export const TEMPLATES = [
-  { id: 't1', n: 1, name: 'רך ומרפא', forWho: 'טיפול רגשי', style: 'soft', decor: 'blobs', font: 'Varela Round', own: { bg: '#f6efe9', ink: '#3d3a3a', a: '#c98b8b', b: '#9fb8a3' } },
-  { id: 't4', n: 4, name: 'חם ואישי', forWho: 'הדרכת הורים', style: 'soft', decor: 'polaroid', font: 'Assistant', own: { bg: '#f4ead8', ink: '#4a3b2c', a: '#b5653c', b: '#e2b26b' } },
-  { id: 't6', n: 6, name: 'אופטימי ומזמין', forWho: 'אימון אישי', style: 'soft', decor: 'sun', font: 'Rubik', own: { bg: '#fff6dc', ink: '#2f3a4a', a: '#f2a516', b: '#4aa3c7' } },
-  { id: 't2', n: 2, name: 'נקי ומקצועי', forWho: 'ייעוץ עסקי', style: 'clean', decor: 'grid', font: 'Heebo', own: { bg: '#ffffff', ink: '#1d2433', a: '#ffd23f', b: '#1d2433' } },
-  { id: 't8', n: 8, name: 'עריכתי וחד', forWho: 'יועצים ומרצים', style: 'clean', decor: 'magazine', font: 'Heebo', own: { bg: '#f7f5f0', ink: '#141414', a: '#d6362f', b: '#141414' } },
-  { id: 't9', n: 9, name: 'רענן וקליל', forWho: 'תזונה וכושר', style: 'clean', decor: 'cuts', font: 'Rubik', own: { bg: '#f0faf6', ink: '#16372e', a: '#3cc49a', b: '#ffb347' } },
-  { id: 't3', n: 3, name: 'אנרגטי ונועז', forWho: 'אימון מכירות', style: 'bold', decor: 'diagonal', font: 'Secular One', dark: true, own: { bg: '#161616', ink: '#ffffff', a: '#c6f432', b: '#ff7a1a' } },
-  { id: 't10', n: 10, name: 'נשי וחזק', forWho: 'מנטורינג לנשים', style: 'bold', decor: 'arches', font: 'Secular One', own: { bg: '#fff0f6', ink: '#3a0f2a', a: '#d6247a', b: '#ffb3d1' } },
-  { id: 't5', n: 5, name: 'שקט ויוקרתי', forWho: 'מנטורינג אישי', style: 'calm', decor: 'frame', font: 'Heebo', dark: true, own: { bg: '#2a1d2e', ink: '#f6efe6', a: '#c9a45c', b: '#6d4f75' } },
-  { id: 't7', n: 7, name: 'רוחני ומדיטטיבי', forWho: 'מיינדפולנס', style: 'calm', decor: 'moon', font: 'Varela Round', dark: true, own: { bg: '#18233f', ink: '#eef1fb', a: '#f2d48b', b: '#7f8fd6' } },
+  { id: 't1', n: 1, name: 'מרווה', mood: 'רך ומרפא', forWho: 'טיפול רגשי', style: 'soft', decor: 'blobs', font: 'Varela Round', own: { bg: '#f6efe9', ink: '#3d3a3a', a: '#c98b8b', b: '#9fb8a3' } },
+  { id: 't4', n: 4, name: 'אדמה', mood: 'חם ואישי', forWho: 'הדרכת הורים', style: 'soft', decor: 'polaroid', font: 'Assistant', own: { bg: '#f4ead8', ink: '#4a3b2c', a: '#b5653c', b: '#e2b26b' } },
+  { id: 't6', n: 6, name: 'שמש', mood: 'אופטימי ומזמין', forWho: 'אימון אישי', style: 'sunny', decor: 'sun', font: 'Rubik', own: { bg: '#fff6dc', ink: '#2f3a4a', a: '#f2a516', b: '#4aa3c7' } },
+  { id: 't2', n: 2, name: 'סרגל', mood: 'מקצועי ונקי', forWho: 'ייעוץ עסקי', style: 'clean', decor: 'grid', font: 'Heebo', own: { bg: '#ffffff', ink: '#1d2433', a: '#ffd23f', b: '#1d2433' } },
+  { id: 't8', n: 8, name: 'כתב עת', mood: 'עריכתי וחד', forWho: 'יועצים ומרצים', style: 'editorial', decor: 'magazine', font: 'Heebo', own: { bg: '#f7f5f0', ink: '#141414', a: '#d6362f', b: '#141414' } },
+  { id: 't9', n: 9, name: 'רענן', mood: 'בריא וקליל', forWho: 'תזונה וכושר', style: 'fresh', decor: 'cuts', font: 'Rubik', own: { bg: '#f0faf6', ink: '#16372e', a: '#3cc49a', b: '#ffb347' } },
+  { id: 't3', n: 3, name: 'ניצוץ', mood: 'אנרגטי ונועז', forWho: 'אימון מכירות', style: 'bold', decor: 'diagonal', font: 'Secular One', dark: true, own: { bg: '#161616', ink: '#ffffff', a: '#c6f432', b: '#ff7a1a' } },
+  { id: 't10', n: 10, name: 'פוקסיה', mood: 'נשי וחזק', forWho: 'מנטורינג לנשים', style: 'bold', decor: 'arches', font: 'Secular One', own: { bg: '#fff0f6', ink: '#3a0f2a', a: '#d6247a', b: '#ffb3d1' } },
+  { id: 't5', n: 5, name: 'קטיפה', mood: 'יוקרתי ושקט', forWho: 'מנטורינג אישי', style: 'calm', decor: 'frame', font: 'Heebo', dark: true, own: { bg: '#2a1d2e', ink: '#f6efe6', a: '#c9a45c', b: '#6d4f75' } },
+  { id: 't7', n: 7, name: 'ירח', mood: 'רוחני ומדיטטיבי', forWho: 'מיינדפולנס', style: 'spirit', decor: 'moon', font: 'Varela Round', dark: true, own: { bg: '#18233f', ink: '#eef1fb', a: '#f2d48b', b: '#7f8fd6' } },
 ];
 export const RECOMMENDED_TEMPLATE = 't1';
 

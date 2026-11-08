@@ -1,7 +1,7 @@
 // Shared pieces: windows (sheets), fields, choice chips, tags.
 import { html, useEffect, Icon, cx } from './lib.js';
 
-export function Sheet({ title, onClose, children, footer, wide, full }) {
+export function Sheet({ title, onClose, children, footer, wide, full, xl }) {
   useEffect(() => {
     const k = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', k);
@@ -12,7 +12,7 @@ export function Sheet({ title, onClose, children, footer, wide, full }) {
     <div
       class=${cx(
         'rise pb-safe absolute inset-x-0 bottom-0 flex max-h-[92dvh] flex-col rounded-t-[22px] bg-canvas md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[18px] md:shadow-2xl',
-        full ? 'md:h-[88dvh] md:w-[min(1180px,94vw)]' : wide ? 'md:w-[640px]' : 'md:w-[480px]',
+        full ? 'md:h-[88dvh] md:w-[min(1180px,94vw)]' : xl ? 'md:w-[min(900px,94vw)]' : wide ? 'md:w-[640px]' : 'md:w-[480px]',
       )}
       role="dialog"
       aria-modal="true"

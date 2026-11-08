@@ -7,9 +7,9 @@ import { html, useState, Icon, cx } from './lib.js';
 import { Button, StepHeading, SharkAvatar } from './components.js';
 import { Sheet, Field, inputCls, Tag } from './ui.js';
 import { USER, META, BRAND, postLink, partLabel, partNo, weekDays, g } from './data.js';
-import { Canvas, Slide, ReelFrame } from './art.js';
+import { Canvas, Slide, ReelFrame, PostImage } from './art.js';
 import { topicOf, postQuote, reelCaption, carouselCaption } from './content.js';
-import { tplOf, palOf, photoOf, itemState, captionOf, fmtOf, typeOf, dayOf } from './step.js';
+import { tplOf, palOf, photoOf, itemState, postImg, captionOf, fmtOf, typeOf, dayOf } from './step.js';
 
 // ---------- the Meta connection ----------
 export function MetaSheet({ flags, onClose, onDone }) {
@@ -72,7 +72,9 @@ function PlatformPreview({ cfg, flags, item, target }) {
   const caption = item.format === 'post' ? captionOf(cfg, item) : item.format === 'carousel' ? carouselCaption(t) : reelCaption(t);
   const art = item.format === 'reel'
     ? html`<${Canvas} w=${1080} h=${1920} round=${0}><${ReelFrame} t=${tpl} p=${p} hook=${st.hook === 'none' ? null : t.hooks[st.hook]} caption=${st.caps?.[0]?.text} photo=${photoOf(cfg, flags) || USER.photo} /><//>`
-    : html`<${Canvas} round=${0}><${Slide} s=${item.format === 'post' ? { kind: 'quote', title: postQuote(t) } : st.slides[0]} t=${tpl} p=${p} total=${item.format === 'carousel' ? st.slides.length : 1} noLogo=${flags.noLogo} /><//>`;
+    : item.format === 'post'
+      ? html`<${Canvas} round=${0}><${PostImage} t=${tpl} p=${p} photo=${photoOf(cfg, flags) || USER.photo} ...${postImg(st, t)} noLogo=${flags.noLogo} /><//>`
+      : html`<${Canvas} round=${0}><${Slide} s=${st.slides[0]} t=${tpl} p=${p} total=${st.slides.length} noLogo=${flags.noLogo} /><//>`;
   const name = target === 'ig' ? META.ig.handle : META.fb.page;
   return html`<div class="mx-auto w-full max-w-[300px] overflow-hidden rounded-2xl bg-white ring-1 ring-line">
     <div class="flex items-center gap-2 px-3 py-2">
