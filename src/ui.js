@@ -101,3 +101,14 @@ export function BrowserFrame({ url, children, class: cls = '', mobile }) {
     ${children}
   </div>`;
 }
+
+// Text size: smaller / the percent (a click there goes back to 100%) / bigger.
+export const SIZE = { min: 80, max: 150, step: 10 };
+export function TextSize({ value, onChange, label = 'גודל הטקסט' }) {
+  const b = 'grid h-8 w-8 place-items-center text-brand-600 hover:bg-brand-50 cursor-pointer disabled:cursor-not-allowed disabled:text-faint disabled:hover:bg-transparent';
+  return html`<span class="inline-flex h-8 items-center overflow-hidden rounded-lg bg-white ring-1 ring-line" role="group" aria-label=${label}>
+    <button type="button" class=${b} disabled=${value >= SIZE.max} onClick=${() => onChange(Math.min(SIZE.max, value + SIZE.step))} aria-label="להגדיל את הטקסט"><${Icon} name="a-arrow-up" size=${18} /></button>
+    <button type="button" class=${cx('h-8 min-w-[52px] border-x border-line px-1 text-[13px] font-bold tabular-nums cursor-pointer hover:bg-canvas', value !== 100 && 'text-brand-600')} title="חזרה לגודל הרגיל" aria-label=${`${value}%, חזרה לגודל הרגיל`} onClick=${() => onChange(100)}><span dir="ltr">${value}%</span></button>
+    <button type="button" class=${b} disabled=${value <= SIZE.min} onClick=${() => onChange(Math.max(SIZE.min, value - SIZE.step))} aria-label="להקטין את הטקסט"><${Icon} name="a-arrow-down" size=${18} /></button>
+  </span>`;
+}

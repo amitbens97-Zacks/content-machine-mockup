@@ -100,14 +100,16 @@ export const SLIDE_ALIGN = [{ id: 'right', label: 'לימין' }, { id: 'center'
 export function Slide({ s, t, p: base, i = 0, total = 1, noLogo, look, edit }) {
   const L = { ...SLIDE_LOOK, ...(look || {}), show: { ...SLIDE_LOOK.show, ...(look?.show || {}) } };
   const p = flyerPalette(base, L.bg);
-  const k = (FLYER_SIZES.find((x) => x.id === L.size) || FLYER_SIZES[1]).k;
+  const k = textK(L.size);
   const F = L.font || t.font;
   const z = (n) => Math.round(n * k);
   const mid = L.align === 'center';
   const E = (key, value, style, Tag = 'span') => (edit
     ? html`<${EditText} key=${key} k=${key} value=${value} style=${style} tag=${Tag} edit=${edit} />`
     : html`<${Tag} style=${style}>${value}<//>`);
-  const pad = { position: 'absolute', top: '150px', right: '96px', left: '96px', bottom: '170px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: mid ? 'center' : 'stretch', textAlign: mid ? 'center' : 'right', gap: '34px', zIndex: 1 };
+  // Big text gets a little more room: less space above and between the parts.
+  const big = k > 1.2;
+  const pad = { position: 'absolute', top: big ? '124px' : '150px', right: '96px', left: '96px', bottom: '170px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: mid ? 'center' : 'stretch', textAlign: mid ? 'center' : 'right', gap: big ? '22px' : '34px', zIndex: 1 };
   const num = t.decor === 'magazine' ? { font: `900 230px Heebo`, color: L.bg === 'color' ? p.a : t.own.a, lineHeight: 0.8 } : { font: `800 64px Rubik`, color: p.a };
   const mark = L.bg === 'color' ? {} : hl(t, p);
   let inner;
@@ -153,10 +155,11 @@ export const POST_LAYOUTS = [
 export const POST_LOOK = { layout: 'arch', bg: 'light', size: 'm', zoom: 100, pos: 'top', show: { sign: true, logo: true } };
 export const postSign = () => `${USER.fullName} · ${USER.role}`;
 
-export function PostImage({ t, p: base, photo, quote, sign, look = POST_LOOK, noLogo, edit }) {
+export function PostImage({ t, p: base, photo, quote, sign, look = POST_LOOK, noLogo, edit, onFit }) {
   const L = { ...POST_LOOK, ...look, show: { ...POST_LOOK.show, ...(look?.show || {}) } };
   const p = flyerPalette(base, L.bg);
-  const k = (FLYER_SIZES.find((x) => x.id === L.size) || FLYER_SIZES[1]).k;
+  // Room for the quote: above the logo (photo in an arch), above the photo (speech bubble).
+  const [k, textBox] = useFitK(textK(L.size), L.layout === 'card' ? 1060 : L.layout === 'bubble' ? 730 : L.show.logo ? 456 : 520, [L.layout, L.show.sign, L.show.logo, quote], onFit);
   const pos = (FLYER_POS.find((x) => x.id === L.pos) || FLYER_POS[0]).v;
   const signText = sign || postSign();
   const E = (key, value, style, Tag = 'span') => (edit
@@ -168,7 +171,7 @@ export function PostImage({ t, p: base, photo, quote, sign, look = POST_LOOK, no
     return html`<div style=${box(p, t, { background: '#222' })}>
       <${Photo} src=${photo} zoom=${L.zoom} pos=${pos} frame=${{ inset: 0 }} />
       <div style=${{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0) 55%)' }}></div>
-      <div style=${{ position: 'absolute', right: '70px', left: '70px', bottom: '170px', padding: '56px 64px 52px', borderRadius: '44px', background: p.bg, color: p.ink, zIndex: 1, boxShadow: '0 20px 50px rgba(0,0,0,.25)' }}>
+      <div ref=${textBox} style=${{ position: 'absolute', right: '70px', left: '70px', bottom: '170px', padding: '56px 64px 52px', borderRadius: '44px', background: p.bg, color: p.ink, zIndex: 1, boxShadow: '0 20px 50px rgba(0,0,0,.25)' }}>
         ${mark(p.a)}
         ${E('quote', quote, { display: 'block', font: `800 ${Math.round(62 * k)}px/1.24 '${t.font}', Rubik` }, 'p')}
         ${L.show.sign && E('sign', signText, { display: 'block', marginTop: '26px', font: `700 ${Math.round(38 * k)}px Assistant`, color: p.a }, 'p')}
@@ -178,7 +181,7 @@ export function PostImage({ t, p: base, photo, quote, sign, look = POST_LOOK, no
   if (L.layout === 'bubble')
     return html`<div style=${box(p, t)}>
       <${Decor} t=${t} p=${p} />
-      <div style=${{ position: 'absolute', top: '120px', right: '90px', left: '90px', padding: '70px 70px 64px', borderRadius: '56px', background: p.a, color: p.onA, zIndex: 1 }}>
+      <div ref=${textBox} style=${{ position: 'absolute', top: '120px', right: '90px', left: '90px', padding: '70px 70px 64px', borderRadius: '56px', background: p.a, color: p.onA, zIndex: 1 }}>
         ${mark(p.onA)}
         ${E('quote', quote, { display: 'block', font: `800 ${Math.round(66 * k)}px/1.22 '${t.font}', Rubik` }, 'p')}
         <span style=${{ position: 'absolute', bottom: '-46px', right: '170px', width: 0, height: 0, borderLeft: '46px solid transparent', borderRight: '46px solid transparent', borderTop: `50px solid ${p.a}` }}></span>
@@ -192,7 +195,7 @@ export function PostImage({ t, p: base, photo, quote, sign, look = POST_LOOK, no
   return html`<div style=${box(p, t)}>
     <${Decor} t=${t} p=${p} />
     <${Photo} src=${photo} zoom=${L.zoom} pos=${pos} frame=${{ top: '96px', right: '230px', width: '620px', height: '600px', borderRadius: '310px 310px 28px 28px', border: `12px solid ${p.a}`, zIndex: 1 }} />
-    <div style=${{ position: 'absolute', top: '740px', right: '96px', left: '96px', textAlign: 'center', zIndex: 1 }}>
+    <div ref=${textBox} style=${{ position: 'absolute', top: '740px', right: '96px', left: '96px', textAlign: 'center', zIndex: 1 }}>
       ${E('quote', quote, { display: 'block', font: `800 ${Math.round(64 * k)}px/1.22 '${t.font}', Rubik` }, 'p')}
       ${L.show.sign && E('sign', signText, { display: 'block', marginTop: '24px', font: `700 ${Math.round(38 * k)}px Assistant`, color: p.a }, 'p')}
     </div>
@@ -209,13 +212,13 @@ export const CAP_STYLES = [
   { id: 'yellow', label: 'צהוב' },
   { id: 'brand', label: 'צבע המותג' },
 ];
-export function ReelFrame({ t, p, hook, caption, photo, playing, media, capStyle = 'box', brand = true }) {
+export function ReelFrame({ t, p, hook, caption, photo, playing, media, capStyle = 'box', capSize = 100, brand = true }) {
   const cap = capStyle === 'yellow' ? { background: 'transparent', color: '#ffe14d', textShadow: '0 4px 0 #000, 0 0 18px rgba(0,0,0,.7)' } : capStyle === 'brand' ? { background: p.a, color: p.onA } : { background: 'rgba(0,0,0,.55)', color: '#fff', textShadow: '0 3px 0 rgba(0,0,0,.4)' };
   return html`<div style=${box(p, t, { background: '#222' })}>
     ${media || html`<img src=${photo} alt="" style=${{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(.82)' }} />`}
     ${hook && html`<div style=${{ position: 'absolute', top: '230px', right: '70px', left: '70px', minHeight: '190px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '26px 40px', borderRadius: '28px', background: p.a, color: p.onA, font: `800 66px/1.18 '${t.font}', Rubik`, textAlign: 'center' }}>${hook}</div>`}
     ${caption && html`<div style=${{ position: 'absolute', top: '1210px', right: 0, left: 0, display: 'flex', justifyContent: 'center' }}>
-      <span style=${{ padding: '10px 30px', borderRadius: '18px', font: `800 80px/1.15 Rubik`, ...cap }}>${caption}</span>
+      <span style=${{ padding: '10px 30px', borderRadius: '18px', font: `800 ${Math.round(80 * textK(capSize))}px/1.15 Rubik`, ...cap }}>${caption}</span>
     </div>`}
     ${brand && html`<div style=${{ position: 'absolute', right: '70px', bottom: '230px' }}><${Brand} p=${p} light size=${64} /></div>`}
     ${!playing && html`<div style=${{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}><span style=${{ width: '200px', height: '200px', borderRadius: '999px', background: 'rgba(0,0,0,.45)', display: 'grid', placeItems: 'center' }}><svg width="90" height="90" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="#fff" /></svg></span></div>`}
@@ -278,6 +281,25 @@ export const FLYER_SIZES = [
   { id: 'm', label: 'רגיל', k: 1 },
   { id: 'l', label: 'גדול', k: 1.14 },
 ];
+// The text size is the user's choice, in percent (80 to 150, steps of 10). Old saved
+// values (s, m, l) still read.
+export const sizePct = (size) => (typeof size === 'number' ? size : Math.round((FLYER_SIZES.find((x) => x.id === size) || FLYER_SIZES[1]).k * 100));
+export const textK = (size) => sizePct(size) / 100;
+// The text grows to the size the user chose, as long as its block fits in its room (down
+// to the footer, the logo or the photo). If not, it stops at the biggest size that fits, so
+// nothing runs into anything. onFit tells the editor that size, in percent.
+function useFitK(want, room, reset, onFit) {
+  const [fitK, setFitK] = useState(want);
+  const ref = useRef(null);
+  useEffect(() => setFitK(want), [want, ...reset]);
+  useEffect(() => {
+    const el = ref.current;
+    if (el && el.scrollHeight > room && fitK > 0.7) setFitK((f) => +(f - 0.03).toFixed(2));
+  });
+  const k = Math.min(want, fitK);
+  useEffect(() => onFit && onFit(Math.round(k * 100)), [k]);
+  return [k, ref];
+}
 export const FLYER_POS = [
   // "למעלה" moves the photo up in its frame (shows more of its lower part), "למטה" moves it down.
   { id: 'top', label: 'למעלה', v: 'center 82%' },
@@ -312,10 +334,11 @@ function EditText({ k, value, style, tag: Tag, edit }) {
     onBlur=${(e) => { const v = e.target.innerText.trim(); if (v && v !== value) edit(k, v); else e.target.innerText = value; }} />`;
 }
 
-export function Flyer({ t, p: base, layout, photo, noLogo, offer = OFFER, price = true, qr = true, look = FLYER_LOOK, edit }) {
+export function Flyer({ t, p: base, layout, photo, noLogo, offer = OFFER, price = true, qr = true, look = FLYER_LOOK, edit, onFit }) {
   const L = { ...FLYER_LOOK, ...look, show: { ...FLYER_LOOK.show, ...(look?.show || {}) } };
   const p = flyerPalette(base, L.bg);
-  const k = (FLYER_SIZES.find((x) => x.id === L.size) || FLYER_SIZES[1]).k;
+  // Room for the texts, down to the footer (QR, logo).
+  const [k, textBox] = useFitK(textK(L.size), layout === 'split' ? 940 : layout === 'circle' ? 600 : 960, [layout, L.show.points, L.font, offer.title, offer.sub, offer.points.join()], onFit);
   const font = L.font || t.font;
   const pos = (FLYER_POS.find((x) => x.id === L.pos) || FLYER_POS[0]).v;
   const full = layout === 'full';
@@ -343,21 +366,21 @@ export function Flyer({ t, p: base, layout, photo, noLogo, offer = OFFER, price 
     return html`<div style=${box(p, t)}>
       <${Photo} src=${photo} zoom=${L.zoom} pos=${pos} frame=${{ top: 0, left: 0, width: '44%', height: '100%' }} />
       <div style=${{ position: 'absolute', top: 0, left: '44%', width: '14px', height: '100%', background: p.a }}></div>
-      <div style=${{ position: 'absolute', top: '100px', right: '80px', width: '46%', display: 'flex', flexDirection: 'column', gap: '30px', zIndex: 1 }}>${texts}</div>
+      <div ref=${textBox} style=${{ position: 'absolute', top: '100px', right: '80px', width: '46%', display: 'flex', flexDirection: 'column', gap: '30px', zIndex: 1 }}>${texts}</div>
       ${foot}
     </div>`;
   if (layout === 'circle')
     return html`<div style=${box(p, t)}>
       <${Decor} t=${t} p=${p} />
       <${Photo} src=${photo} zoom=${L.zoom} pos=${pos} frame=${{ top: '90px', left: '80px', width: '330px', height: '330px', borderRadius: '999px', border: `12px solid ${p.a}`, zIndex: 1 }} />
-      <div style=${{ position: 'absolute', top: '470px', right: '80px', left: '80px', display: 'flex', flexDirection: 'column', gap: '26px', zIndex: 1 }}>${texts}</div>
+      <div ref=${textBox} style=${{ position: 'absolute', top: '470px', right: '80px', left: '80px', display: 'flex', flexDirection: 'column', gap: '26px', zIndex: 1 }}>${texts}</div>
       <div style=${{ position: 'absolute', top: '150px', right: '80px', width: '520px', font: `700 46px/1.3 Assistant`, zIndex: 1, color: p.a }}>${USER.fullName}<br /><span style=${{ color: p.ink, font: `500 36px Assistant` }}>${USER.role}</span></div>
       ${foot}
     </div>`;
   return html`<div style=${box(p, t)}>
     <${Photo} src=${photo} zoom=${L.zoom} pos=${pos} frame=${{ inset: 0 }} />
     <div style=${{ position: 'absolute', inset: 0, background: `linear-gradient(to top, ${p.dark ? p.bg : '#0f1f1e'} 0%, rgba(15,31,30,.82) 52%, rgba(15,31,30,0) 78%)` }}></div>
-    <div style=${{ position: 'absolute', right: '80px', left: '80px', bottom: '300px', display: 'flex', flexDirection: 'column', gap: '24px', color: '#fff', zIndex: 1 }}>${texts}</div>
+    <div ref=${textBox} style=${{ position: 'absolute', right: '80px', left: '80px', bottom: '300px', display: 'flex', flexDirection: 'column', gap: '24px', color: '#fff', zIndex: 1 }}>${texts}</div>
     ${foot}
   </div>`;
 }

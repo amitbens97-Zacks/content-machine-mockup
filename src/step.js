@@ -5,12 +5,12 @@
 // From the second week on, the step is only the topics, the items and the week plan.
 import { html, useState, useEffect, useRef, Icon, PencilCheck, PencilLine, cx, confetti, money } from './lib.js';
 import { Button, Note, StepHeading, SharkAvatar, SubStep } from './components.js';
-import { Chips, inputCls, Tag } from './ui.js';
+import { Chips, inputCls, Tag, TextSize, SIZE } from './ui.js';
 import { USER, BRAND, META, PAGE_LINK, PLATFORMS, STYLES, TEMPLATES, RECOMMENDED_TEMPLATE, TYPES, FORMATS, TOPICS, TOPIC_CHOICES, TOPIC_WHY, LAST_WEEK_STATS, OFFER, PARTS, PART_HINT, MAX_WEEKS, partLabel, partNo, weekDays, weekRange, MESSAGE_LINES, BIOS, BIO_PARTS, BIO_MAX, WORDS, DESIGN, g } from './data.js';
-import { Canvas, Slide, SLIDE_LOOK, SLIDE_ALIGN, ReelFrame, ReelCover, Flyer, PostImage, POST_LAYOUTS, POST_LOOK, LAYOUTS, FLYER_FONTS, FLYER_BG, FLYER_SIZES, FLYER_POS, FLYER_LOOK, palette } from './art.js';
+import { Canvas, Slide, SLIDE_LOOK, SLIDE_ALIGN, ReelFrame, ReelCover, Flyer, PostImage, POST_LAYOUTS, POST_LOOK, LAYOUTS, FLYER_FONTS, FLYER_BG, FLYER_SIZES, FLYER_POS, FLYER_LOOK, sizePct, palette } from './art.js';
 import { words, LIMITS, topicOf, checkText, postVersions, postQuote, CHANGES, changeOptions, carouselSlides, slideFields, reelScript, scriptSec, capAt, fmtSec } from './content.js';
 import { MetaSheet } from './publish.js';
-import { ReelSheet, reelOf, reelFile, dropFile, VideoMedia } from './reel.js';
+import { ReelSheet, reelOf, reelFile, dropFile, swapVideo, VideoMedia } from './reel.js';
 
 export function Toggle({ on, onChange, label }) {
   return html`<button
@@ -63,6 +63,8 @@ export function itemState(cfg, item) {
     img: s.img || null,
     reel: s.reel || null,
     look: s.look || null,
+    undo: s.undo || null, // the post text before the last shark suggestion
+    prev: s.prev || null, // the reel video before the last replace
   };
 }
 // The text that goes out with an item.
@@ -367,6 +369,7 @@ function Suggestions({ req, text, tp, onPick, onClose }) {
     <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
       <p class="flex items-center gap-2 text-[14px] font-bold"><${SharkAvatar} size=${26} />${req.label}: ${list.length} הצעות. ${g('בחר', 'בחרי')} אחת</p>
       <span class="flex gap-1">
+        ${round > 0 && html`<${Button} variant="quiet" class="!h-8 !px-2 !text-[13px]" onClick=${() => setRound((r) => r - 1)}><${Icon} name="chevron-right" size=${14} />ההצעות הקודמות<//>`}
         ${more && html`<${Button} variant="quiet" class="!h-8 !px-2 !text-[13px]" onClick=${() => setRound((r) => r + 1)}><${Icon} name="refresh-cw" size=${14} />עוד הצעות<//>`}
         <${Button} variant="quiet" class="!h-8 !px-2 !text-[13px]" onClick=${onClose}>להשאיר כמו שהיה<//>
       </span>
@@ -394,13 +397,16 @@ function PostEditor({ item, st, setIt, p, tpl, flags, cfg }) {
   const [tab, setTab] = useState('text');
   const text = st.texts[st.version] ?? versions.find((v) => v.id === st.version).text;
   const setText = (v) => setIt({ texts: { ...st.texts, [st.version]: v } });
+  // After a shark suggestion: one click back to the text before it (and again, forward).
+  const undo = st.undo && st.undo.version === st.version && st.undo.text !== text ? st.undo : null;
+  const back = () => setIt({ texts: { ...st.texts, [st.version]: undo.text }, undo: { version: st.version, text } });
   const photo = photoOf(cfg, flags) || USER.photo;
   const img = postImg(st, tp);
   const setImg = (patch) => setIt({ img: { ...img, ...patch } });
   const tabs = html`<${Tabs} value=${tab} onChange=${setTab} items=${[['text', 'הטקסט', 'align-right'], ['image', 'התמונה', 'image']]} />`;
   if (tab === 'image') return html`${tabs}<${PostImageEditor} img=${img} setImg=${setImg} tp=${tp} p=${p} tpl=${tpl} photo=${photo} flags=${flags} />`;
   const onImage = () => setTab('image');
-  return html`${tabs}<div class="grid items-start gap-5 md:grid-cols-[1fr_250px]">
+  return html`${tabs}<div class="grid items-start gap-5 md:grid-cols-[1fr_216px]">
     <div class="min-w-0">
       <${SubStep} n="1">בוחרים פתיח<//>
       <div class="mb-3 grid gap-2 sm:grid-cols-3" role="radiogroup">
@@ -413,10 +419,11 @@ function PostEditor({ item, st, setIt, p, tpl, flags, cfg }) {
       <div class="mb-2 flex flex-wrap items-center gap-1.5">
         <span class="text-[13px] font-bold">לבקש מ${WORDS}:</span>
         ${CHANGES.map((c) => html`<button key=${c.id} type="button" aria-pressed=${req?.id === c.id} class=${cx('h-8 rounded-lg border-[1.5px] px-2 text-[13px] font-bold cursor-pointer', req?.id === c.id ? 'border-brand-600 bg-brand-100 text-brand-600' : 'border-line bg-white hover:border-brand-300')} onClick=${() => setReq(req?.id === c.id ? null : c)}>${c.label}</button>`)}
+        ${undo && !req && html`<button type="button" class="ms-auto inline-flex items-center gap-1 text-[13px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${back}><${Icon} name="undo-2" size=${14} />לחזור לטקסט הקודם</button>`}
       </div>
       ${req
-        ? html`<${Suggestions} key=${req.id + st.version} req=${req} text=${text} tp=${tp} onPick=${(v) => (setText(v), setReq(null))} onClose=${() => setReq(null)} />`
-        : html`<textarea rows="5" class=${cx(inputCls, '!h-auto py-2 leading-relaxed')} value=${text} onInput=${(e) => setText(e.target.value)} aria-label="הטקסט של הפוסט"></textarea>
+        ? html`<${Suggestions} key=${req.id + st.version} req=${req} text=${text} tp=${tp} onPick=${(v) => (setIt({ texts: { ...st.texts, [st.version]: v }, undo: { version: st.version, text } }), setReq(null))} onClose=${() => setReq(null)} />`
+        : html`<textarea rows="4" class=${cx(inputCls, '!h-auto py-2 leading-relaxed')} value=${text} onInput=${(e) => setText(e.target.value)} aria-label="הטקסט של הפוסט"></textarea>
           <${Checks} text=${text} />`}
     </div>
     <div>
@@ -448,8 +455,8 @@ function imageRequest(text, img, tp) {
   if (has('למעלה') && photoWord) (look.pos = 'top'), done.push('מיקום התמונה: למעלה');
   if (has('למטה') && photoWord) (look.pos = 'bottom'), done.push('מיקום התמונה: למטה');
   const textWord = has('טקסט', 'ציטוט', 'כותרת', 'אותיות', 'פונט', 'גופן');
-  if (textWord && has('גדול', 'להגדיל', 'בולט')) (look.size = 'l'), done.push('טקסט גדול');
-  else if (textWord && has('קטן', 'להקטין')) (look.size = 's'), done.push('טקסט קטן');
+  if (textWord && has('גדול', 'להגדיל', 'בולט')) (look.size = Math.min(SIZE.max, sizePct(look.size) + 20)), done.push(`טקסט גדול יותר (${look.size}%)`);
+  else if (textWord && has('קטן', 'להקטין')) (look.size = Math.max(SIZE.min, sizePct(look.size) - 20)), done.push(`טקסט קטן יותר (${look.size}%)`);
   if (has('קצר', 'לקצר', 'פחות מילים')) {
     const w = quote.split(/\s+/);
     const short = (tp.hooks[2] && words(tp.hooks[2]) < w.length ? tp.hooks[2] : w.slice(0, Math.max(5, Math.ceil(w.length * 0.6))).join(' ').replace(/[,،]$/, ''));
@@ -464,6 +471,7 @@ function imageRequest(text, img, tp) {
 // The image tab of the post: the options next to the image, the texts edited on the image
 // itself, and a free-text request to כריש העיצוב.
 function PostImageEditor({ img, setImg, tp, p, tpl, photo, flags }) {
+  const [fits, setFits] = useState(null);
   const look = img.look;
   const setLook = (patch) => setImg({ look: { ...look, ...patch } });
   const show = (k) => setLook({ show: { ...look.show, [k]: !look.show[k] } });
@@ -484,7 +492,7 @@ function PostImageEditor({ img, setImg, tp, p, tpl, photo, flags }) {
     }, 900);
   };
   const edit = (key, v) => setImg({ [key]: v });
-  return html`<div class="grid items-start gap-5 md:grid-cols-[1fr_270px]">
+  return html`<div class="grid items-start gap-5 md:grid-cols-[1fr_236px]">
     <div class="min-w-0">
       <${Row} label="פריסה">
         <div class="flex flex-wrap gap-2" role="radiogroup">
@@ -498,7 +506,7 @@ function PostImageEditor({ img, setImg, tp, p, tpl, photo, flags }) {
         <div class="flex flex-wrap items-center gap-2">
           <${Mini} options=${FLYER_BG} value=${look.bg} onChange=${(v) => setLook({ bg: v })} />
           <span class="h-5 w-px bg-line" aria-hidden="true"></span>
-          <${Mini} options=${FLYER_SIZES} value=${look.size} onChange=${(v) => setLook({ size: v })} />
+          <${TextSize} value=${sizePct(look.size)} onChange=${(v) => setLook({ size: v })} />${fits && fits < sizePct(look.size) && html`<small class="text-[12px] text-muted">נכנס עד ${fits}%</small>`}
         </div>
       <//>
       <${Row} label="התמונה">
@@ -513,13 +521,13 @@ function PostImageEditor({ img, setImg, tp, p, tpl, photo, flags }) {
           ${!flags.noLogo && html`<${OnChip} on=${look.show.logo} onClick=${() => show('logo')}>לוגו<//>`}
         </div>
       <//>
-      <div class="mt-1 rounded-xl border-[1.5px] border-brand-300 bg-brand-50 p-3">
-        <p class="mb-1.5 flex items-center gap-2 text-[14px] font-bold"><${SharkAvatar} size=${24} />לבקש מ${DESIGN}, במילים שלך</p>
+      <div class="mt-1 rounded-xl border-[1.5px] border-brand-300 bg-brand-50 px-3 py-2">
+        <p class="mb-1 flex items-center gap-2 text-[14px] font-bold"><${SharkAvatar} size=${24} />לבקש מ${DESIGN}, במילים שלך</p>
         <div class="flex gap-2">
-          <input class=${cx(inputCls, '!h-10 min-w-0 flex-1 !text-[15px]')} placeholder="למשל: רקע כהה, והתמונה קרובה יותר" value=${ask} disabled=${busy} onInput=${(e) => setAsk(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && send(ask)} aria-label="מה לשנות בתמונה" />
-          <${Button} class="!h-10 shrink-0" disabled=${busy || !ask.trim()} onClick=${() => send(ask)}>${busy ? 'עובד...' : 'לשנות'}<//>
+          <input class=${cx(inputCls, '!h-9 min-w-0 flex-1 !text-[15px]')} placeholder="למשל: רקע כהה, והתמונה קרובה יותר" value=${ask} disabled=${busy} onInput=${(e) => setAsk(e.target.value)} onKeyDown=${(e) => e.key === 'Enter' && send(ask)} aria-label="מה לשנות בתמונה" />
+          <${Button} class="!h-9 shrink-0" disabled=${busy || !ask.trim()} onClick=${() => send(ask)}>${busy ? 'עובד...' : 'לשנות'}<//>
         </div>
-        ${!res && !busy && html`<div class="mt-2 flex flex-wrap gap-1">${IMG_EXAMPLES.map((x) => html`<button key=${x} type="button" class="h-7 rounded-lg bg-white px-2 text-[12px] font-bold text-muted ring-1 ring-line hover:text-brand-600 cursor-pointer" onClick=${() => send(x)}>${x}</button>`)}</div>`}
+        ${!res && !busy && html`<div class="mt-1.5 flex flex-wrap gap-1">${IMG_EXAMPLES.map((x) => html`<button key=${x} type="button" class="h-7 rounded-lg bg-white px-2 text-[12px] font-bold text-muted ring-1 ring-line hover:text-brand-600 cursor-pointer" onClick=${() => send(x)}>${x}</button>`)}</div>`}
         ${busy && html`<p class="mt-2 flex items-center gap-2 text-[13px] text-muted"><${Icon} name="loader" size=${14} class="animate-spin" />${DESIGN} מעצב לפי הבקשה</p>`}
         ${res && html`<div class="rise mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-2.5 py-1.5 text-[13px] ring-1 ring-line">
           ${res.done.length
@@ -530,7 +538,7 @@ function PostImageEditor({ img, setImg, tp, p, tpl, photo, flags }) {
       </div>
     </div>
     <aside class="max-md:order-first max-md:mx-auto max-md:w-full max-md:max-w-[280px] md:sticky md:top-4">
-      <${Canvas} round=${12}><${PostImage} t=${tpl} p=${p} photo=${photo} quote=${img.quote} sign=${img.sign} look=${look} noLogo=${flags.noLogo} edit=${edit} /><//>
+      <${Canvas} round=${12}><${PostImage} t=${tpl} p=${p} photo=${photo} quote=${img.quote} sign=${img.sign} look=${look} noLogo=${flags.noLogo} edit=${edit} onFit=${setFits} /><//>
       <p class="mt-1.5 flex items-center justify-between gap-2 text-[12px] text-muted"><span class="flex items-center gap-1"><${Icon} name="mouse-pointer-click" size=${14} />לחיצה על טקסט בתמונה: עריכה במקום</span><${Counter} text=${img.quote} limit=${LIMITS.quote} /></p>
       <${Checks} text=${img.quote} />
     </aside>
@@ -600,7 +608,7 @@ function CarouselEditor({ item, st, setIt, flags, cfg }) {
           <//>
           <${Row} label="טקסט">
             <div class="flex flex-wrap items-center gap-2">
-              <${Mini} options=${FLYER_SIZES} value=${look.size} onChange=${(v) => setLook({ size: v })} />
+              <${TextSize} value=${sizePct(look.size)} onChange=${(v) => setLook({ size: v })} />
               <span class="h-5 w-px bg-line" aria-hidden="true"></span>
               <${Mini} options=${SLIDE_ALIGN} value=${look.align} onChange=${(v) => setLook({ align: v })} />
               <span class="h-5 w-px bg-line" aria-hidden="true"></span>
@@ -660,8 +668,14 @@ function ReelEditor({ item, st, setIt, p, tpl, flags, notify, cfg }) {
     dropFile(item.id);
     setAskDel(false);
     setPlaying(false);
-    setIt({ video: null, caps: null, names: null, reel: null });
+    setIt({ video: null, caps: null, names: null, reel: null, prev: null });
     notify('הסרטון נמחק. התסריט נשאר, ואפשר להעלות אחר', 'trash-2');
+  };
+  const backVideo = () => {
+    swapVideo(item.id);
+    setPlaying(false);
+    setIt({ caps: st.prev.caps, names: st.prev.names, reel: st.prev.reel, prev: { caps: st.caps, names: st.names, reel: st.reel } });
+    notify('חזרת לסרטון הקודם. אפשר לחזור גם לזה שהחלפת', 'undo-2');
   };
   return html`<div class="grid items-start gap-5 md:grid-cols-[1fr_190px]">
     <div class="min-w-0">
@@ -704,6 +718,7 @@ function ReelEditor({ item, st, setIt, p, tpl, flags, notify, cfg }) {
           </span>
           <${Button} onClick=${() => setSheet('edit')}><${Icon} name="scissors" size=${16} />לערוך את הסרטון<//>
           <button type="button" class="text-[14px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => setSheet('pick')}>להחליף</button>
+          ${st.prev && html`<button type="button" class="inline-flex items-center gap-1 text-[14px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${backVideo}><${Icon} name="undo-2" size=${15} />לסרטון הקודם</button>`}
           <button type="button" class="inline-flex items-center gap-1 text-[14px] font-bold text-error underline underline-offset-2 cursor-pointer" onClick=${() => setAskDel(true)}><${Icon} name="trash-2" size=${15} />למחוק</button>
         </div>
         ${askDel && html`<div class="rise mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-error-50 p-2.5 text-[14px]" role="alertdialog" aria-label="מחיקת הסרטון">
@@ -716,7 +731,7 @@ function ReelEditor({ item, st, setIt, p, tpl, flags, notify, cfg }) {
     </div>
     <div class="mx-auto w-full max-w-[190px]">
       <button type="button" class="block w-full cursor-pointer" onClick=${() => (ready ? setPlaying((x) => !x) : setSheet('pick'))} aria-label=${ready ? (playing ? 'עצירה' : 'ניגון') : 'להעלות סרטון'}>
-        <${Canvas} w=${1080} h=${1920} round=${14}><${ReelFrame} t=${tpl} p=${p} hook=${reel.hook ? hook : null} caption=${ready ? (reel.caps ? capAt(caps, t)?.text : null) : script[1].screen.split(' ').slice(0, 3).join(' ')} photo=${photo} playing=${playing || !ready} capStyle=${reel.capStyle} brand=${reel.logo} media=${file && html`<${VideoMedia} src=${file} playing=${playing} trim=${reel.trim} onTime=${setT} />`} /><//>
+        <${Canvas} w=${1080} h=${1920} round=${14}><${ReelFrame} t=${tpl} p=${p} hook=${reel.hook ? hook : null} caption=${ready ? (reel.caps ? capAt(caps, t)?.text : null) : script[1].screen.split(' ').slice(0, 3).join(' ')} photo=${photo} playing=${playing || !ready} capStyle=${reel.capStyle} capSize=${reel.capSize} brand=${reel.logo} media=${file && html`<${VideoMedia} src=${file} playing=${playing} trim=${reel.trim} onTime=${setT} />`} /><//>
       </button>
       <p class="mt-1 text-center text-[12px] text-muted">${ready ? (playing ? 'לעצירה, לחיצה על הסרטון' : 'לניגון, לחיצה על הסרטון') : 'ככה ייראה הרילס'}</p>
     </div>
@@ -807,7 +822,8 @@ export function FlyerScreen({ cfg, setCfg, flags }) {
     } else e[key] = v;
     setF({ edits: e });
   };
-  const flyer = (layout, editable) => html`<${Flyer} t=${tpl} p=${p} layout=${layout} photo=${photo} noLogo=${flags.noLogo} offer=${offer} price=${f.price && !!offer.price} qr=${f.qr} look=${look} edit=${editable ? edit : null} />`;
+  const [fits, setFits] = useState(null);
+  const flyer = (layout, editable) => html`<${Flyer} t=${tpl} p=${p} layout=${layout} photo=${photo} noLogo=${flags.noLogo} offer=${offer} price=${f.price && !!offer.price} qr=${f.qr} look=${look} edit=${editable ? edit : null} onFit=${editable ? setFits : null} />`;
   return html`<div class="mx-auto max-w-[1120px] px-4 py-3 md:px-8 md:py-3">
     <${StepHeading} n=${partNo('flyer')} eyebrow=${partLabel('flyer')} title=${['פלייר אחד, עם ', 'התמונה שלך', '']} sub="לוחצים על כל טקסט בפלייר כדי לערוך אותו. הפלייר מחכה לך בשלב 11." />
     <div class="grid items-start gap-5 md:grid-cols-[1fr_310px]">
@@ -824,7 +840,7 @@ export function FlyerScreen({ cfg, setCfg, flags }) {
         <${Row} label="צבע הדגשה"><div class="flex gap-1.5">${BRAND.swatches.map((c, i) => html`<button key=${c} type="button" aria-label=${`צבע ${i + 1}`} aria-pressed=${(f.swatch || 0) === i} onClick=${() => setF({ swatch: i })} class=${cx('h-7 w-7 rounded-full cursor-pointer', (f.swatch || 0) === i ? 'ring-[3px] ring-brand-600 ring-offset-2' : 'ring-1 ring-line')} style=${{ background: c }}></button>`)}</div><//>
         <${Row} label="רקע"><${Mini} options=${FLYER_BG} value=${look.bg} onChange=${(v) => setLook({ bg: v })} /><//>
         <${Row} label="גופן כותרת"><${Mini} options=${FLYER_FONTS} value=${look.font} onChange=${(v) => setLook({ font: v })} /><//>
-        <${Row} label="גודל טקסט"><${Mini} options=${FLYER_SIZES} value=${look.size} onChange=${(v) => setLook({ size: v })} /><//>
+        <${Row} label="גודל טקסט"><span class="flex flex-wrap items-center gap-2"><${TextSize} value=${sizePct(look.size)} onChange=${(v) => setLook({ size: v })} />${fits && fits < sizePct(look.size) && html`<small class="text-[12px] text-muted">בפריסה הזו נכנס עד ${fits}%. בפריסה אחרת או בלי הנקודות, יותר.</small>`}</span><//>
         <${Row} label="התמונה">
           <div class="flex flex-wrap items-center gap-3">
             <label class="flex items-center gap-2 text-[13px]"><${Icon} name="zoom-in" size=${15} class="text-muted" /><input type="range" min="100" max="160" step="5" value=${look.zoom} onInput=${(e) => setLook({ zoom: +e.target.value })} class="fb-range w-[120px]" style=${{ '--p': `${((look.zoom - 100) / 60) * 100}%` }} aria-label="זום" /></label>
@@ -888,6 +904,63 @@ function NextWeek({ cfg, setCfg, onNextWeek }) {
   </section>`;
 }
 
+// Back and forward between versions: every version stays, so a "different one" can
+// always be undone.
+const VerNav = ({ at, total, onGo, label }) => html`<span class="inline-flex items-center gap-0.5" role="group" aria-label=${label}>
+  <button type="button" class="grid h-8 w-8 place-items-center rounded-lg text-brand-600 hover:bg-brand-50 cursor-pointer disabled:cursor-not-allowed disabled:text-faint disabled:hover:bg-transparent" disabled=${at === 0} onClick=${() => onGo(at - 1)} aria-label="לגרסה הקודמת"><${Icon} name="chevron-right" size=${17} /></button>
+  <span class="min-w-[34px] text-center text-[12px] font-bold tabular-nums text-muted" dir="ltr">${at + 1}/${total}</span>
+  <button type="button" class="grid h-8 w-8 place-items-center rounded-lg text-brand-600 hover:bg-brand-50 cursor-pointer disabled:cursor-not-allowed disabled:text-faint disabled:hover:bg-transparent" disabled=${at === total - 1} onClick=${() => onGo(at + 1)} aria-label="לגרסה הבאה"><${Icon} name="chevron-left" size=${17} /></button>
+</span>`;
+
+// The Instagram bio, by the 4-line rule (data.js). On the summary and on the week plan,
+// every week. Edits are kept per version, and the shark's wording is always one click back.
+export function BioCard({ cfg, setCfg, flags, notify, compact }) {
+  const bio = cfg.bio || { ver: 0 };
+  const texts = bio.texts || (bio.text != null ? { [bio.ver]: bio.text } : {});
+  const original = BIOS[bio.ver].join(NL);
+  const text = texts[bio.ver] ?? original;
+  const edited = text !== original;
+  const [editing, setEditing] = useState(false);
+  const setBio = (patch) => setCfg({ bio: { ver: bio.ver, texts, ...patch } });
+  const link = 'text-[13px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer';
+  return html`<section class="fb-panel overflow-hidden !p-0 ring-2 ring-[#e1306c]/30" aria-label="הביו לאינסטגרם">
+    <div class="flex items-center gap-2 bg-gradient-to-l from-[#f58529] via-[#dd2a7b] to-[#8134af] px-4 py-2 text-white">
+      <${Icon} name="instagram" size=${18} />
+      <h2 class="flex-1 text-[16px] font-bold">הביו שלך לאינסטגרם</h2>
+      <span class=${cx('rounded-full px-2 py-0.5 text-[12px] font-bold tabular-nums', text.length > BIO_MAX ? 'bg-white text-error' : 'bg-white/20')} dir="ltr">${text.length}/${BIO_MAX}</span>
+    </div>
+    <div class=${compact ? 'p-3' : 'p-3.5'}>
+      ${!compact && html`<div class="mb-2 flex items-center gap-2.5">
+        <img src=${photoOf(cfg, flags) || USER.photo} alt="" class="h-11 w-11 rounded-full object-cover ring-2 ring-[#e1306c] ring-offset-2" />
+        <span class="min-w-0"><b class="block text-[15px] leading-tight">${USER.business}</b><small class="block text-[12px] text-muted" dir="ltr">@${META.ig.handle}</small></span>
+      </div>`}
+      ${editing
+        ? html`<textarea rows="4" class=${cx(inputCls, '!h-auto resize-none !py-2 text-[14px] font-bold leading-snug')} value=${text} onInput=${(e) => setBio({ texts: { ...texts, [bio.ver]: e.target.value } })} aria-label="הביו"></textarea>`
+        : html`<ul class="flex flex-col gap-1">
+            ${text.split(NL).map((l, i) => html`<li key=${i} class="flex items-baseline justify-between gap-2" title=${BIO_PARTS[i] || ''}>
+              <span class=${cx('font-bold leading-snug', compact ? 'text-[14px]' : 'text-[14.5px]')}>${l}</span>
+              ${!compact && BIO_PARTS[i] && html`<span class="shrink-0 whitespace-nowrap rounded-md bg-canvas px-1.5 py-px text-[11px] font-bold text-muted">${BIO_PARTS[i]}</span>`}
+            </li>`)}
+          </ul>`}
+      <div class="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <${Button} class="!h-9" onClick=${() => notify('הביו הועתק. באינסטגרם: עריכת פרופיל, ואז ביו', 'copy')}><${Icon} name="copy" size=${15} />להעתיק<//>
+        <button type="button" class=${link} onClick=${() => setEditing((x) => !x)}>${editing ? 'סיום עריכה' : 'לערוך'}</button>
+        ${edited && html`<button type="button" class=${link} onClick=${() => { const { [bio.ver]: _, ...rest } = texts; setBio({ texts: rest }); }}>לחזור לנוסח של הכריש</button>`}
+        <span class="ms-auto"><${VerNav} label="גרסאות הביו" at=${bio.ver} total=${BIOS.length} onGo=${(v) => (setEditing(false), setBio({ ver: v }))} /></span>
+      </div>
+    </div>
+  </section>`;
+}
+// The message line, with its versions.
+function MessageRow({ cfg, setCfg, notify }) {
+  const at = cfg.msgLine || 0;
+  return html`<section class="fb-panel flex items-center gap-2 !px-3 !py-2" aria-label="משפט מסר">
+    <span class="min-w-0 flex-1"><small class="block text-[12px] font-bold text-muted">משפט מסר</small><span class="block text-[14px] font-bold leading-snug">${MESSAGE_LINES[at].text}</span></span>
+    <${VerNav} label="גרסאות משפט המסר" at=${at} total=${MESSAGE_LINES.length} onGo=${(v) => setCfg({ msgLine: v })} />
+    <button type="button" aria-label="להעתיק" class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-brand-600 hover:bg-brand-50 cursor-pointer" onClick=${() => notify('הועתק', 'copy')}><${Icon} name="copy" size=${15} /></button>
+  </section>`;
+}
+
 export function Done({ cfg, setCfg, flags, notify, onGrow, onNextWeek }) {
   const week = cfg.week || 1;
   const growing = cfg.growth === 'active';
@@ -897,11 +970,6 @@ export function Done({ cfg, setCfg, flags, notify, onGrow, onNextWeek }) {
     const o = !growing && cfg.growthAsked !== week ? setTimeout(() => (setCfg({ growthAsked: week }), onGrow()), 1600) : null;
     return () => (clearTimeout(t), clearTimeout(o));
   }, []);
-  const [line, setLine] = useState(0);
-  const bio = cfg.bio || { ver: 0, text: null };
-  const bioText = bio.text ?? BIOS[bio.ver].join(NL);
-  const [editBio, setEditBio] = useState(false);
-  const setBio = (patch) => setCfg({ bio: { ...bio, ...patch } });
   const scheduled = cfg.plan.filter((i) => cfg.sched[i.id]?.status === 'scheduled').length;
   const manual = cfg.plan.filter((i) => ['manual', 'posted'].includes(cfg.sched[i.id]?.status)).length;
   const rows = [
@@ -940,37 +1008,8 @@ export function Done({ cfg, setCfg, flags, notify, onGrow, onNextWeek }) {
               <span class="text-[15px] font-bold">שבועות של תוכן ברצף</span>
             <//>`}
       </div>
-      ${week === 1 && html`<section class="fb-panel overflow-hidden !p-0 ring-2 ring-[#e1306c]/30" aria-label="הביו לאינסטגרם">
-        <div class="flex items-center gap-2 bg-gradient-to-l from-[#f58529] via-[#dd2a7b] to-[#8134af] px-4 py-2 text-white">
-          <${Icon} name="instagram" size=${18} />
-          <h2 class="flex-1 text-[16px] font-bold">הביו שלך לאינסטגרם</h2>
-          <span class=${cx('rounded-full px-2 py-0.5 text-[12px] font-bold tabular-nums', bioText.length > BIO_MAX ? 'bg-white text-error' : 'bg-white/20')} dir="ltr">${bioText.length}/${BIO_MAX}</span>
-        </div>
-        <div class="p-3.5">
-          <div class="mb-2 flex items-center gap-2.5">
-            <img src=${photoOf(cfg, flags) || USER.photo} alt="" class="h-11 w-11 rounded-full object-cover ring-2 ring-[#e1306c] ring-offset-2" />
-            <span class="min-w-0"><b class="block text-[15px] leading-tight">${USER.business}</b><small class="block text-[12px] text-muted" dir="ltr">@${META.ig.handle}</small></span>
-          </div>
-          ${editBio
-            ? html`<textarea rows="4" class=${cx(inputCls, '!h-auto resize-none !py-2 text-[14px] font-bold leading-snug')} value=${bioText} onInput=${(e) => setBio({ text: e.target.value })} aria-label="הביו"></textarea>`
-            : html`<ul class="flex flex-col gap-1">
-                ${bioText.split(NL).map((l, i) => html`<li key=${i} class="flex items-baseline justify-between gap-2">
-                  <span class="text-[14.5px] font-bold leading-snug">${l}</span>
-                  ${BIO_PARTS[i] && html`<span class="shrink-0 whitespace-nowrap rounded-md bg-canvas px-1.5 py-px text-[11px] font-bold text-muted">${BIO_PARTS[i]}</span>`}
-                </li>`)}
-              </ul>`}
-          <div class="mt-3 flex flex-wrap items-center gap-2">
-            <${Button} class="!h-9" onClick=${() => notify('הביו הועתק. באינסטגרם: עריכת פרופיל, ואז ביו', 'copy')}><${Icon} name="copy" size=${15} />להעתיק את הביו<//>
-            <button type="button" class="text-[13px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => setEditBio((x) => !x)}>${editBio ? 'סיום עריכה' : 'לערוך'}</button>
-            <button type="button" class="text-[13px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => (setEditBio(false), setBio({ ver: (bio.ver + 1) % BIOS.length, text: null }))}>גרסה אחרת (${bio.ver + 1}/${BIOS.length})</button>
-          </div>
-        </div>
-      </section>
-      <section class="fb-panel flex items-center gap-2 !px-3 !py-2" aria-label="משפט מסר">
-        <span class="min-w-0 flex-1"><small class="block text-[12px] font-bold text-muted">משפט מסר</small><span class="block text-[14px] font-bold leading-snug">${MESSAGE_LINES[line].text}</span></span>
-        <button type="button" aria-label="משפט אחר" class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-brand-600 hover:bg-brand-50 cursor-pointer" onClick=${() => setLine((x) => (x + 1) % MESSAGE_LINES.length)}><${Icon} name="refresh-cw" size=${15} /></button>
-        <button type="button" aria-label="להעתיק" class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-brand-600 hover:bg-brand-50 cursor-pointer" onClick=${() => notify('הועתק', 'copy')}><${Icon} name="copy" size=${15} /></button>
-      </section>`}
+      <${BioCard} cfg=${cfg} setCfg=${setCfg} flags=${flags} notify=${notify} />
+      <${MessageRow} cfg=${cfg} setCfg=${setCfg} notify=${notify} />
     </div>
   </div>`;
 }

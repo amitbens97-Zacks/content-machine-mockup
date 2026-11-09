@@ -4,7 +4,7 @@
 // video (hook, captions, logo), the caption look, silences and noise, and the captions.
 import { html, useState, useEffect, useRef, Icon, PencilCheck, cx } from './lib.js';
 import { Button } from './components.js';
-import { Sheet, Tag } from './ui.js';
+import { Sheet, Tag, TextSize } from './ui.js';
 import { Canvas, ReelFrame, ReelCover, CAP_STYLES } from './art.js';
 import { LIMITS, AD_LIB, REEL_STAGES, captionLines, spoken, fitCaps, capAt, fmtSec } from './content.js';
 
@@ -13,9 +13,24 @@ import { LIMITS, AD_LIB, REEL_STAGES, captionLines, spoken, fitCaps, capAt, fmtS
 const FILES = {};
 export const reelFile = (id) => FILES[id] || null;
 export const dropFile = (id) => {
-  if (FILES[id]) URL.revokeObjectURL(FILES[id]);
-  delete FILES[id];
+  [id, `${id}~prev`].forEach((k) => {
+    if (FILES[k]) URL.revokeObjectURL(FILES[k]);
+    delete FILES[k];
+  });
 };
+// Replacing a video keeps the one before it, so "לחזור לסרטון הקודם" can bring it back
+// (and swap again). A new file only takes the item's place when the user saves.
+const setFile = (id, url) => (url ? (FILES[id] = url) : delete FILES[id]);
+function keepPrev(id) {
+  const old = FILES[`${id}~prev`];
+  if (old && old !== FILES[id]) URL.revokeObjectURL(old);
+  setFile(`${id}~prev`, FILES[id]);
+}
+export function swapVideo(id) {
+  const now = FILES[id];
+  setFile(id, FILES[`${id}~prev`]);
+  setFile(`${id}~prev`, now);
+}
 // Calls fn with the video's time on every frame while it plays (timeupdate is only 4 a second,
 // too slow for captions), and loops inside the trim.
 function useFrameTime(ref, playing, trim, fn) {
@@ -46,7 +61,7 @@ export function VideoMedia({ src, playing, trim, onTime }) {
   useFrameTime(ref, playing, trim, (x) => onTime && onTime(x));
   return html`<video ref=${ref} src=${src} muted loop playsinline style=${{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#000' }} />`;
 }
-export const REEL_DEFAULT = { trim: null, hook: true, caps: true, logo: true, capStyle: 'box', silence: true, noise: true, cover: 'design', coverAt: 1, edited: false };
+export const REEL_DEFAULT = { trim: null, hook: true, caps: true, logo: true, capStyle: 'box', capSize: 100, silence: true, noise: true, cover: 'design', coverAt: 1, edited: false };
 // A video the user already edited (cuts, captions): only the name check runs, and nothing is added on top by default.
 const EDITED = { hook: false, caps: false, silence: false, noise: false, edited: true };
 export const COVERS = [{ id: 'design', label: 'כריכה מעוצבת' }, { id: 'frame', label: 'פריים מהסרטון' }];
@@ -68,6 +83,7 @@ export function ReelSheet({ item, st, setIt, tpl, p, photo, hook, script, startA
   const [reel, setReel] = useState(reelOf(st));
   const [drag, setDrag] = useState(false);
   const [edited, setEdited] = useState(reelOf(st).edited);
+  const [fresh, setFresh] = useState(false); // a new video in this window, not saved yet
   const stages = edited ? REEL_STAGES.slice(0, 3) : REEL_STAGES;
   const fileRef = useRef(null);
   const timer = useRef();
@@ -77,16 +93,15 @@ export function ReelSheet({ item, st, setIt, tpl, p, photo, hook, script, startA
     if (!f) return;
     if (!f.type.startsWith('video/')) return notify('צריך קובץ וידאו (MP4 או MOV)', 'triangle-alert');
     const url = URL.createObjectURL(f);
-    FILES[item.id] = url;
     setSrc(url);
     start();
   };
   const sample = () => {
-    delete FILES[item.id];
     setSrc(null);
     start();
   };
   const start = () => {
+    setFresh(true);
     setNames(null);
     setStage(0);
     setReel({ ...REEL_DEFAULT, ...(edited ? EDITED : {}) });
@@ -105,7 +120,12 @@ export function ReelSheet({ item, st, setIt, tpl, p, photo, hook, script, startA
   }, [step, stage, names]);
 
   const save = () => {
-    setIt({ video: 'ready', caps, names, reel });
+    const patch = { video: 'ready', caps, names, reel };
+    if (fresh) {
+      if (st.video === 'ready') (keepPrev(item.id), (patch.prev = { caps: st.caps, names: st.names, reel: st.reel }));
+      setFile(item.id, src);
+    }
+    setIt(patch);
     notify(st.video === 'ready' ? 'השינויים בסרטון נשמרו' : 'הסרטון מוכן, עם כתוביות והוק', 'clapperboard');
     onClose();
   };
@@ -206,7 +226,7 @@ function ReelEdit({ src, caps, setCaps, reel, setReel, names, tpl, p, photo, hoo
   return html`<div class="grid items-start gap-5 md:grid-cols-[230px_1fr]">
     <div class="mx-auto w-full max-w-[230px]">
       <button type="button" class="block w-full cursor-pointer" onClick=${() => setPlaying((x) => !x)} aria-label=${playing ? 'עצירה' : 'ניגון'}>
-        <${Canvas} w=${1080} h=${1920} round=${14}><${ReelFrame} t=${tpl} p=${p} hook=${reel.hook ? hook : null} caption=${cap} photo=${photo} playing=${playing} media=${media} capStyle=${reel.capStyle} brand=${reel.logo} /><//>
+        <${Canvas} w=${1080} h=${1920} round=${14}><${ReelFrame} t=${tpl} p=${p} hook=${reel.hook ? hook : null} caption=${cap} photo=${photo} playing=${playing} media=${media} capStyle=${reel.capStyle} capSize=${reel.capSize} brand=${reel.logo} /><//>
       </button>
       <div class="mt-2 flex items-center gap-2">
         <button type="button" class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-600 text-white cursor-pointer" onClick=${() => setPlaying((x) => !x)} aria-label=${playing ? 'עצירה' : 'ניגון'}><${Icon} name=${playing ? 'pause' : 'play'} size=${16} /></button>
@@ -235,7 +255,7 @@ function ReelEdit({ src, caps, setCaps, reel, setReel, names, tpl, p, photo, hoo
           <${Toggle2} on=${reel.hook} onClick=${() => setReel({ hook: !reel.hook })}>הוק למעלה<//>
           <${Toggle2} on=${reel.caps} onClick=${() => setReel({ caps: !reel.caps })}>כתוביות<//>
           <${Toggle2} on=${reel.logo} onClick=${() => setReel({ logo: !reel.logo })}>לוגו ושם<//>
-          ${reel.caps && html`<span class="ms-1 flex items-center gap-1.5 text-[13px] text-muted">כתוביות:<${Seg} options=${CAP_STYLES} value=${reel.capStyle} onChange=${(v) => setReel({ capStyle: v })} /></span>`}
+          ${reel.caps && html`<span class="ms-1 flex flex-wrap items-center gap-1.5 text-[13px] text-muted">כתוביות:<${Seg} options=${CAP_STYLES} value=${reel.capStyle} onChange=${(v) => setReel({ capStyle: v })} /><${TextSize} label="גודל הכתוביות" value=${reel.capSize} onChange=${(v) => setReel({ capSize: v })} /></span>`}
         </div>
       <//>
       <${Box} title="הכריכה" aside=${html`<span class="text-[12px] font-normal text-muted">בפרופיל ובלשונית הרילס</span>`}>

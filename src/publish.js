@@ -9,7 +9,7 @@ import { Sheet, Field, inputCls, Tag } from './ui.js';
 import { USER, META, BRAND, postLink, partLabel, partNo, weekDays, g } from './data.js';
 import { Canvas, Slide, ReelFrame, PostImage } from './art.js';
 import { topicOf, postQuote, reelCaption, carouselCaption } from './content.js';
-import { tplOf, palOf, photoOf, itemState, postImg, carouselArt, captionOf, fmtOf, typeOf, dayOf } from './step.js';
+import { tplOf, palOf, photoOf, itemState, postImg, carouselArt, captionOf, fmtOf, typeOf, dayOf, BioCard } from './step.js';
 
 // ---------- the Meta connection ----------
 export function MetaSheet({ flags, onClose, onDone }) {
@@ -71,7 +71,7 @@ function PlatformPreview({ cfg, flags, item, target }) {
   const st = itemState(cfg, item);
   const caption = item.format === 'post' ? captionOf(cfg, item) : item.format === 'carousel' ? carouselCaption(t) : reelCaption(t);
   const art = item.format === 'reel'
-    ? html`<${Canvas} w=${1080} h=${1920} round=${0}><${ReelFrame} t=${tpl} p=${p} hook=${st.hook === 'none' ? null : t.hooks[st.hook]} caption=${st.caps?.[0]?.text} photo=${photoOf(cfg, flags) || USER.photo} /><//>`
+    ? html`<${Canvas} w=${1080} h=${1920} round=${0}><${ReelFrame} t=${tpl} p=${p} hook=${st.hook === 'none' ? null : t.hooks[st.hook]} caption=${st.reel?.caps === false ? null : st.caps?.[0]?.text} capStyle=${st.reel?.capStyle} capSize=${st.reel?.capSize} photo=${photoOf(cfg, flags) || USER.photo} /><//>`
     : item.format === 'post'
       ? html`<${Canvas} round=${0}><${PostImage} t=${tpl} p=${p} photo=${photoOf(cfg, flags) || USER.photo} ...${postImg(st, t)} noLogo=${flags.noLogo} /><//>`
       : html`<${Canvas} round=${0}><${Slide} s=${st.slides[0]} ...${carouselArt(st, cfg, flags)} total=${st.slides.length} noLogo=${flags.noLogo} /><//>`;
@@ -183,8 +183,10 @@ export function WeekScreen({ cfg, setCfg, flags, notify }) {
   const rows = [...cfg.plan].sort((a, b) => order.indexOf(a.day) - order.indexOf(b.day) || a.time.localeCompare(b.time));
   const setPlan = (id, p) => setCfg({ plan: cfg.plan.map((i) => (i.id === id ? { ...i, ...p } : i)) });
   const chip = (x, on) => html`<span key=${x.id} class=${cx('inline-flex h-7 items-center gap-1 rounded-lg px-2 text-[13px] font-bold', on ? 'bg-money-50 text-money' : 'bg-canvas text-muted ring-1 ring-line')}><${Icon} name=${x.icon} size=${14} />${x.label}</span>`;
-  return html`<div class="mx-auto max-w-[1000px] px-4 py-4 md:px-8 md:py-5">
+  return html`<div class="mx-auto max-w-[1180px] px-4 py-4 md:px-8 md:py-5">
     <${StepHeading} n=${partNo('week')} eyebrow=${partLabel('week')} title=${['מתי כל פריט ', 'יוצא', '']} sub=${direct.length ? 'הכריש הציע ימים ושעות שבהם הקהל שלך פעיל. אפשר לשנות כאן, ובסוף "לתזמן את השבוע" בכפתור למטה.' : 'הכריש הציע ימים ושעות. כל פריט נכנס ליומן עם תזכורת, טקסט להעתקה וקבצים להורדה.'} />
+    <div class="grid items-start gap-4 lg:grid-cols-[1fr_300px]">
+    <div class="min-w-0">
     <div class="mb-3 grid grid-cols-7 overflow-hidden rounded-xl bg-white ring-1 ring-line" aria-hidden="true">
       ${days.map((d, i) => {
         const its = cfg.plan.filter((x) => x.day === d.id);
@@ -217,6 +219,9 @@ export function WeekScreen({ cfg, setCfg, flags, notify }) {
     <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px]">
       ${direct.length > 0 && html`<span class="flex flex-wrap items-center gap-1.5"><b>יוצא לבד:</b>${direct.map((x) => chip(x, true))}</span>`}
       ${copy.length > 0 && html`<span class="flex flex-wrap items-center gap-1.5"><b>להעתקה ותזכורת:</b>${copy.map((x) => chip(x, false))}</span>`}
+    </div>
+    </div>
+    <${BioCard} cfg=${cfg} setCfg=${setCfg} flags=${flags} notify=${notify} compact />
     </div>
     ${item && html`<${ItemSheet} cfg=${cfg} setCfg=${setCfg} flags=${flags} item=${item} notify=${notify} onClose=${() => setOpen(null)} />`}
   </div>`;
