@@ -151,50 +151,85 @@ export function slideFields(s) {
 export const carouselCaption = (t) => [t.hooks[0], '', t.insight, '', t.question].join('\n');
 
 // ---------- reel: 3 hooks and a 30-45 second script ----------
-export function reelScript(t) {
+// The seconds of each line come from the same speaking pace as the captions, so the script,
+// the video and the captions agree.
+export function reelScript(t, h = 0) {
   const pts = t.points.slice(0, 3);
-  return [
-    { at: '0-3', say: t.hooks[0], screen: t.hooks[0] },
-    { at: '3-10', say: `${t.pain}? זה מוכר להרבה אנשים.`, screen: `${t.pain}?` },
-    ...pts.map((p, i) => ({ at: `${10 + i * 7}-${17 + i * 7}`, say: p, screen: p.split(' ').slice(0, 4).join(' ') })),
-    { at: `${10 + pts.length * 7}-${16 + pts.length * 7}`, say: t.type === 'offer' ? `${t.who} ${t.cta}, בקישור בביו.` : `${t.question} ${t.cta}.`, screen: t.type === 'offer' ? t.cta : t.cta },
+  const rows = [
+    { say: t.hooks[h] || t.hooks[0], screen: t.hooks[h] || t.hooks[0] },
+    { say: `${t.pain}? זה מוכר להרבה אנשים.`, screen: `${t.pain}?` },
+    ...pts.map((p) => ({ say: p, screen: p.split(' ').slice(0, 4).join(' ') })),
+    { say: t.type === 'offer' ? `${t.who} ${t.cta}, בקישור בביו.` : `${t.question} ${t.cta}.`, screen: t.cta },
   ];
+  let at = 0;
+  return rows.map((r) => {
+    const from = Math.round(at);
+    at += sayTime(r.say) + BREATH;
+    return { ...r, at: `${from}-${Math.max(from + 1, Math.round(at))}` };
+  });
 }
+export const scriptSec = (script) => +script[script.length - 1].at.split('-')[1];
 export const reelCaption = (t) => (t.type === 'offer' ? [t.hooks[0], t.sub, '', `${t.cta}: הקישור בביו`].join('\n') : [t.hooks[0], '', t.insight, '', t.question].join('\n'));
 
-// The video the demo user uploads, as the transcription returns it. One sentence mentions
-// a lead by name, so the name check stops it.
-export const TRANSCRIPT = [
-  'רוצים להפסיק לתכנן את היום סביב החרדה?',
-  g(`אני ${USER.firstName}, עובד סוציאלי קליני, ואני עובד עם חרדה כבר שמונה שנים.`, `אני ${USER.firstName}, עובדת סוציאלית קלינית, ואני עובדת עם חרדה כבר שמונה שנים.`),
-  'כמו שאמרתי לנועה בשבוע שעבר, הבנה לבד לא מספיקה.',
-  'בתהליך של שתים עשרה פגישות לומדים מה מפעיל את החרדה, ומקבלים כלים להתקף.',
-  'וכל שבוע עושים צעד אחד קטן.',
-  'לשיחת היכרות בלי עלות, הקישור בביו.',
-];
-// Captions: up to 3 words and 15 characters a line; a line ends at the end of a sentence
-// or after a pause of 0.45s; it leaves the screen 0.4s after its last word.
-export function captionLines(sentences) {
+// What the demo user says in the video: the script, line by line, plus one sentence of their
+// own that mentions a lead by name, so the name check stops on it.
+export const AD_LIB = 'כמו שאמרתי לנועה בשבוע שעבר, הבנה לבד לא מספיקה.';
+export function spoken(script, names) {
+  const s = script.map((r) => r.say);
+  if (names !== 'cut') s.splice(2, 0, names === 'name' ? AD_LIB.replace('לנועה ', '') : AD_LIB);
+  return s;
+}
+// Captions: up to 3 words and 15 characters a line, and a line never runs over the end of a
+// sentence. Each line is on screen exactly while its words are said: about 2.5 words a second
+// (a long word takes a little longer), and a short breath between sentences.
+// In the real product the times come from the transcription, word by word.
+const SEC_WORD = 0.4;
+const BREATH = 0.45;
+const sayTime = (text) => text.split(' ').reduce((a, w) => a + SEC_WORD + Math.max(0, w.length - 5) * 0.05, 0);
+// A sentence into lines: as few as fit, a word alone on a line only when nothing else works,
+// a break after a comma rather than in the middle of a phrase, and a number stays with its word.
+function balance(ws) {
+  const best = [{ cost: 0, prev: -1 }];
+  for (let i = 1; i <= ws.length; i++) {
+    best[i] = { cost: Infinity, prev: i - 1 };
+    for (let k = 1; k <= Math.min(LIMITS.capWords, i); k++) {
+      const line = ws.slice(i - k, i).join(' ');
+      if (k > 1 && line.length > LIMITS.capChars) continue;
+      const end = i < ws.length;
+      const c = best[i - k].cost + 10
+        + (k === 1 ? (/[,.?!]$/.test(line) ? 1 : 5) : 0) // a word alone, unless it closes a phrase
+        + (end && !/,$/.test(ws[i - 1]) ? 2 : 0) // a break that is not after a comma
+        + (end && /,$/.test(ws[i]) ? 3 : 0) // the next line would open with the end of this phrase
+        + (end && /^\d+$/.test(ws[i - 1]) ? 8 : 0); // a number apart from its word
+      if (c < best[i].cost) best[i] = { cost: c, prev: i - k };
+    }
+  }
+  const lines = [];
+  for (let i = ws.length; i > 0; i = best[i].prev) lines.unshift(ws.slice(best[i].prev, i).join(' '));
+  return lines;
+}
+export function captionLines(said) {
   const out = [];
-  sentences.forEach((s, si) => {
-    let cur = [];
-    s.split(/\s+/).filter(Boolean).forEach((w) => {
-      const next = [...cur, w].join(' ');
-      if (cur.length && (cur.length >= LIMITS.capWords || next.length > LIMITS.capChars)) {
-        out.push({ s: si, text: cur.join(' ') });
-        cur = [w];
-      } else cur.push(w);
-    });
-    if (cur.length) out.push({ s: si, text: cur.join(' ') });
+  said.flatMap((x) => x.split(/(?<=[.?!])\s+/)).forEach((s, si) => {
+    balance(s.split(/\s+/).filter(Boolean)).forEach((text) => out.push({ s: si, text }));
   });
-  let t = 0;
+  let t = 0.2;
   return out.map((l, i) => {
-    const d = 0.35 * words(l.text) + 0.4;
-    const r = { id: `c${i}`, ...l, from: t, to: t + d };
-    t += d + 0.1;
+    const d = sayTime(l.text);
+    const r = { id: `c${i}`, ...l, from: +t.toFixed(2), to: +(t + d).toFixed(2) };
+    t += d + (out[i + 1] && out[i + 1].s !== l.s ? BREATH : 0);
     return r;
   });
 }
+// A real video: the same lines, spread over its length (in the demo there is no transcription).
+export function fitCaps(caps, dur) {
+  if (!caps.length || !dur) return caps;
+  const k = (dur - 0.3) / caps[caps.length - 1].to;
+  if (Math.abs(k - 1) < 0.01) return caps;
+  return caps.map((c) => ({ ...c, from: +(c.from * k).toFixed(2), to: +(c.to * k).toFixed(2) }));
+}
+// Lines on screen at time x (seconds from the start of the video).
+export const capAt = (caps, x) => caps.find((c) => x >= c.from && x < c.to + 0.05) || null;
 export const fmtSec = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 // The processing of a reel (skills pack, page 17). Runs on a server; the user waits on this list.

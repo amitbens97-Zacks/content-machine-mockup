@@ -3,7 +3,7 @@
 // the time; Facebook gets the time with the post (Pages only). Nothing goes out without
 // an explicit "לתזמן" from the user. Facebook groups and LinkedIn are copy-and-remind.
 // Also here: the Meta connection sheet (part 1) and the follower-growth sheet (the finish).
-import { html, useState, Icon, cx, money } from './lib.js';
+import { html, useState, useEffect, useRef, Icon, cx, money } from './lib.js';
 import { Button, StepHeading, SharkAvatar } from './components.js';
 import { Sheet, Field, inputCls, Tag } from './ui.js';
 import { USER, META, BRAND, postLink, partLabel, partNo, weekDays, g } from './data.js';
@@ -230,18 +230,125 @@ export function WeekScreen({ cfg, setCfg, flags, notify }) {
 // FlowBiz, never logged.
 export const GROWTH_PRICE = 350;
 const VAT = 0.18;
-const HOW = [
-  ['target', 'בוחרים את הקהל', '3 עד 5 עמודים באינסטגרם שהקהל שלך כבר עוקב אחריהם. לא מתחרים, תחום קרוב.'],
-  ['user-plus', 'עוקבים בשבילך, כל יום', 'החשבון שלך עוקב אוטומטית אחרי אנשים מהקהל הזה. הם מקבלים התראה, נכנסים לפרופיל ורואים את התוכן.'],
-  ['user-minus', 'אחרי 10 ימים, מורידים מעקב', 'מי שעקב בחזרה נשאר. את המעקב מורידים, כך שהעוקבים שלך עולים ומספר הנעקבים נשאר נמוך.'],
-];
+// The offer, as a carousel of 5 slides: the promise, then the 3 steps, then the price.
+// It turns by itself every 6 seconds until the user touches it. People in the demo are
+// made-up handles, never names from the leads table.
+const AUDIENCE_PAGES = ['@mindful.israel', '@horut.bari', '@nefesh_bria'];
+const NEW_FOLLOWERS = [['mor.levi', '#e8590c'], ['itay_runs', '#0b7285'], ['hila.home', '#7048e8']];
+const CROWD = ['#e8590c', '#0b7285', '#7048e8', '#2b8a3e', '#c2255c', '#1864ab', '#d6336c', '#5c940d', '#ae3ec9', '#f08c00', '#087f5b', '#364fc7'];
+const GROW_SLIDES = 5;
+const Dot = ({ c, size = 30, i = 0, label }) => html`<span class="grid shrink-0 place-items-center rounded-full font-bold text-white ring-2 ring-white" style=${{ width: size, height: size, background: c, fontSize: size * 0.42, animation: `popIn .35s ${i * 0.05}s both` }} aria-hidden="true">${label}</span>`;
+
+function GrowSlide({ n }) {
+  const [count, setCount] = useState(1208);
+  useEffect(() => {
+    if (n !== 0) return;
+    setCount(1208);
+    const id = setInterval(() => setCount((c) => (c < 1211 ? c + 1 : c)), 900);
+    return () => clearInterval(id);
+  }, [n]);
+  const text = (kicker, title, sub, dark) => html`<div class="min-w-0">
+    <p class=${cx('mb-1.5 text-[13px] font-bold', dark ? 'text-white/75' : 'text-brand-600')}>${kicker}</p>
+    <h3 class=${cx('font-display text-[25px] font-bold leading-[1.15] md:text-[28px]', dark && 'text-white')}>${title}</h3>
+    <p class=${cx('mt-2 text-[15px] leading-snug', dark ? 'text-white/85' : 'text-muted')}>${sub}</p>
+  </div>`;
+  if (n === 0)
+    return html`<div class="grid h-full items-center gap-4 bg-gradient-to-br from-brand-600 to-brand-800 p-5 md:grid-cols-[1fr_230px] md:p-6">
+      <div>
+        ${text('הצעד הבא אחרי התוכן', html`תוכנה חכמה שמביאה לך <span class="text-[#ffd23f]">2 עד 4 עוקבים חדשים</span> ורלוונטיים בכל יום!`, 'אנשים מהקהל שלך מגיעים לפרופיל, רואים את התוכן שיצרת כאן, ועוקבים. 0 דקות ממך.', true)}
+        <p class="mt-3 flex flex-wrap gap-1.5 text-[13px] font-bold text-white">${['בלי מודעות', 'בלי בוטים', 'בלי התחייבות'].map((x) => html`<span key=${x} class="flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1"><${Icon} name="check" size=${14} />${x}</span>`)}</p>
+      </div>
+      <div class="relative mx-auto w-full max-w-[230px] rounded-2xl bg-white p-3.5 text-ink shadow-xl" style=${{ animation: 'popIn .5s both' }} aria-label="הפרופיל שלך באינסטגרם">
+        <div class="flex items-center gap-3">
+          <img src=${USER.photo} alt="" class="h-14 w-14 rounded-full object-cover ring-2 ring-[#e1306c] ring-offset-2" />
+          <div class="grid flex-1 grid-cols-2 text-center">
+            <span><b class="block text-[18px] tabular-nums leading-tight">${count.toLocaleString('en-US')}</b><small class="text-[12px] text-muted">עוקבים</small></span>
+            <span><b class="block text-[18px] tabular-nums leading-tight">184</b><small class="text-[12px] text-muted">נעקבים</small></span>
+          </div>
+        </div>
+        <b class="mt-2 block text-[14px]">${USER.business}</b>
+        <small class="block text-[12px] text-muted" dir="ltr">@${META.ig.handle}</small>
+        <span key=${count} class="absolute -top-3 start-3 flex items-center gap-1 rounded-full bg-money px-2.5 py-1 text-[13px] font-bold text-white shadow" style=${{ animation: 'popIn .3s both' }}><${Icon} name="trending-up" size=${14} /><span dir="ltr">+${count - 1208 || 1}</span> היום</span>
+      </div>
+    </div>`;
+  if (n === 1)
+    return html`<div class="grid h-full items-center gap-4 bg-brand-50 p-5 md:grid-cols-[1fr_230px] md:p-6">
+      ${text('1 · בוחרים את הקהל', '3 עד 5 עמודים שהקהל שלך כבר עוקב אחריהם', 'לא מתחרים, תחום קרוב. התוכנה מוצאת שם את האנשים שמתאימים לעסק שלך.')}
+      <div class="mx-auto flex w-full max-w-[230px] flex-col items-center gap-2">
+        ${AUDIENCE_PAGES.map((x, i) => html`<span key=${x} class="w-full rounded-xl bg-white px-3 py-2 text-center text-[14px] font-bold shadow-sm ring-1 ring-line" dir="ltr" style=${{ animation: `slideIn .35s ${i * 0.12}s both` }}>${x}</span>`)}
+        <${Icon} name="arrow-down" size=${20} class="text-brand-600" />
+        <div class="flex flex-wrap justify-center -space-x-2 rtl:space-x-reverse" aria-label="האנשים שעוקבים אחריהם">${CROWD.slice(0, 9).map((c, i) => html`<${Dot} key=${i} c=${c} i=${i + 4} label="" />`)}</div>
+        <small class="text-[12px] font-bold text-brand-700">הקהל שלך, בלי לחפש</small>
+      </div>
+    </div>`;
+  if (n === 2)
+    return html`<div class="grid h-full items-center gap-4 bg-brand-50 p-5 md:grid-cols-[1fr_230px] md:p-6">
+      ${text('2 · התוכנה עוקבת בשבילך', 'כל יום, אחרי אנשים מהקהל הזה', 'הם מקבלים התראה, נכנסים לפרופיל, רואים את התוכן שלך, ועוקבים בחזרה. 2 עד 4 כאלה כל יום.')}
+      <div class="mx-auto flex w-full max-w-[230px] flex-col gap-2">
+        ${NEW_FOLLOWERS.map(([h, c], i) => html`<div key=${h} class="flex items-center gap-2 rounded-xl bg-white p-2 shadow-sm ring-1 ring-line" style=${{ animation: `slideIn .4s ${0.2 + i * 0.5}s both` }}>
+          <${Dot} c=${c} size=${32} label=${h[0].toUpperCase()} />
+          <span class="min-w-0 flex-1 text-[13px] leading-snug"><b dir="ltr">${h}</b><br />התחיל/ה לעקוב אחריך</span>
+          <span class="rounded-md bg-money-50 px-1.5 py-0.5 text-[12px] font-bold text-money" dir="ltr">+1</span>
+        </div>`)}
+      </div>
+    </div>`;
+  if (n === 3)
+    return html`<div class="grid h-full items-center gap-4 bg-brand-50 p-5 md:grid-cols-[1fr_230px] md:p-6">
+      ${text('3 · אחרי 10 ימים, מורידים מעקב', 'העוקבים עולים, הנעקבים נשארים נמוכים', 'מי שעקב בחזרה נשאר עוקב שלך. את המעקב שלנו מורידים, כדי שהפרופיל ייראה מקצועי.')}
+      <div class="mx-auto w-full max-w-[230px] rounded-xl bg-white p-3 shadow-sm ring-1 ring-line">
+        <svg viewBox="0 0 220 108" class="w-full" role="img" aria-label="העוקבים עולים לאורך החודש, והנעקבים נשארים באותו מספר">
+          <line x1="8" y1="104" x2="212" y2="104" stroke="#d9dee8" />
+          <path d="M8 96 C 50 90, 80 76, 120 58 S 190 22, 212 14" fill="none" stroke="#1f8a5b" stroke-width="4" stroke-linecap="round" stroke-dasharray="700" style=${{ animation: 'draw 1.6s .2s both' }} />
+          <path d="M8 84 L 212 84" fill="none" stroke="#0038b8" stroke-width="3" stroke-dasharray="6 5" stroke-linecap="round" />
+        </svg>
+        <p class="flex justify-between text-[11px] text-muted" dir="ltr"><span>יום 1</span><span>יום 30</span></p>
+        <p class="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[13px] font-bold">
+          <span class="flex items-center gap-1.5 text-money"><span class="h-1 w-5 rounded-full bg-money"></span>העוקבים שלך</span>
+          <span class="flex items-center gap-1.5 text-brand-600"><span class="h-0 w-5 border-t-[3px] border-dashed border-brand-600"></span>הנעקבים</span>
+        </p>
+      </div>
+    </div>`;
+  return html`<div class="grid h-full items-center gap-4 bg-money-50 p-5 md:grid-cols-[1fr_230px] md:p-6">
+    <div>
+      ${text('המחיר', html`<span class="text-[40px] leading-none">${money(GROWTH_PRICE)}</span> <span class="text-[18px]">+ מע"מ לחודש</span>`, 'בלי התחייבות. מבטלים בכל שלב מההגדרות, והחודש ששולם ממשיך לעבוד עד סופו.')}
+    </div>
+    <ul class="mx-auto grid w-full max-w-[230px] gap-2 text-[14px] font-bold">
+      ${[['user-plus', '2 עד 4 עוקבים חדשים בכל יום'], ['users', 'אנשים אמיתיים מהקהל שלך'], ['clock', '0 דקות ממך ביום'], ['shield-check', 'הסיסמה לא נשמרת אצלנו']].map(([icon, x], i) => html`<li key=${x} class="flex items-center gap-2 rounded-xl bg-white p-2 shadow-sm ring-1 ring-line" style=${{ animation: `slideIn .35s ${i * 0.1}s both` }}><span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-money-50 text-money"><${Icon} name=${icon} size=${15} /></span>${x}</li>`)}
+    </ul>
+  </div>`;
+}
+
+function GrowOffer() {
+  const [n, setN] = useState(0);
+  const [auto, setAuto] = useState(true);
+  const touch = useRef(null);
+  useEffect(() => {
+    if (!auto) return;
+    const id = setTimeout(() => setN((x) => (x + 1) % GROW_SLIDES), 6000);
+    return () => clearTimeout(id);
+  }, [n, auto]);
+  const go = (x) => (setAuto(false), setN((x + GROW_SLIDES) % GROW_SLIDES));
+  const arrow = (dir, icon, label) => html`<button type="button" class="grid h-9 w-9 place-items-center rounded-full bg-white text-brand-600 shadow-sm ring-1 ring-line hover:bg-brand-50 cursor-pointer" onClick=${() => go(n + dir)} aria-label=${label}><${Icon} name=${icon} size=${18} /></button>`;
+  return html`<div aria-roledescription="carousel" aria-label="איך זה עובד">
+    <div class="grid overflow-hidden rounded-2xl ring-1 ring-line max-md:min-h-[450px] md:h-[290px]"
+      onTouchStart=${(e) => (touch.current = e.touches[0].clientX)}
+      onTouchEnd=${(e) => { const dx = e.changedTouches[0].clientX - (touch.current ?? e.changedTouches[0].clientX); if (Math.abs(dx) > 40) go(n + (dx > 0 ? 1 : -1)); }}>
+      <div key=${n} class="h-full" style=${{ animation: 'rise .35s both' }} aria-live="polite"><${GrowSlide} n=${n} /></div>
+    </div>
+    <div class="mt-2.5 flex items-center justify-between gap-2">
+      ${arrow(-1, 'chevron-right', 'השקופית הקודמת')}
+      <span class="flex items-center gap-1.5">${Array.from({ length: GROW_SLIDES }, (_, i) => html`<button key=${i} type="button" onClick=${() => go(i)} aria-label=${`שקופית ${i + 1}`} aria-current=${i === n} class=${cx('h-2.5 rounded-full transition-all cursor-pointer', i === n ? 'w-7 bg-brand-600' : 'w-2.5 bg-line hover:bg-brand-300')}></button>`)}</span>
+      ${arrow(1, 'chevron-left', 'השקופית הבאה')}
+    </div>
+  </div>`;
+}
 export function GrowthSheet({ cfg, setCfg, notify, onClose }) {
   const [step, setStep] = useState(cfg.growth === 'paid' ? 'setup' : cfg.growth === 'active' ? 'done' : 'offer');
   const [pages, setPages] = useState(['', '', '']);
   const [pass, setPass] = useState('');
   const filled = pages.filter((x) => x.trim()).length;
   const vat = Math.round(GROWTH_PRICE * VAT);
-  const title = { offer: 'עוקבים חדשים, בלי מאמץ', pay: 'אישור התשלום', setup: 'עוד 2 דברים, ומתחילים', done: 'צמיחת העוקבים פעילה' }[step];
+  const title = { offer: '2 עד 4 עוקבים חדשים, כל יום', pay: 'אישור התשלום', setup: 'עוד 2 דברים, ומתחילים', done: 'צמיחת העוקבים פעילה' }[step];
   const footer = {
     offer: html`<${Button} variant="quiet" onClick=${onClose}>לא עכשיו<//><${Button} class="!h-11 !text-[16px]" onClick=${() => setStep('pay')}><${Icon} name="trending-up" size=${18} />להתחיל לצמוח<//>`,
     pay: html`<${Button} variant="quiet" onClick=${() => setStep('offer')}>חזרה<//><${Button} class="!h-11 !text-[16px]" onClick=${() => (setCfg({ growth: 'paid' }), setStep('setup'), notify('התשלום עבר', 'check'))}><${Icon} name="lock" size=${17} />לאשר ולשלם ${money(GROWTH_PRICE + vat)}<//>`,
@@ -249,38 +356,7 @@ export function GrowthSheet({ cfg, setCfg, notify, onClose }) {
     done: html`<span></span><${Button} onClick=${onClose}>סגירה<//>`,
   }[step];
   return html`<${Sheet} wide title=${title} onClose=${onClose} footer=${footer}>
-    ${step === 'offer' && html`<div>
-      <div class="mb-4 flex items-center gap-3 rounded-2xl bg-brand-600 p-4 text-white">
-        <${SharkAvatar} size=${52} mood="happy" />
-        <div class="min-w-0">
-          <b class="block font-display text-[21px] leading-tight">התוכן מוכן. עכשיו צריך שיראו אותו</b>
-          <p class="mt-1 text-[14px] text-white/85">אנשים מהקהל שלך מגיעים לפרופיל כל יום, ו${g('אתה לא עושה', 'את לא עושה')} כלום.</p>
-        </div>
-      </div>
-      <p class="mb-2 text-[15px] font-bold">איך זה עובד</p>
-      <ol class="mb-3 grid gap-2 sm:grid-cols-3">
-        ${HOW.map(([icon, head, text], i) => html`<li key=${head} class="relative rounded-xl bg-white p-3 ring-1 ring-line">
-          <span class="mb-1.5 flex items-center gap-2"><span class="grid h-8 w-8 place-items-center rounded-full bg-brand-100 text-brand-600"><${Icon} name=${icon} size=${17} /></span><span class="font-display text-[14px] font-bold text-muted">${i + 1}</span></span>
-          <b class="block text-[15px] leading-snug">${head}</b>
-          <small class="mt-0.5 block text-[13px] leading-snug text-muted">${text}</small>
-        </li>`)}
-      </ol>
-      <div class="mb-3 rounded-xl bg-white px-3 pb-2.5 pt-3 ring-1 ring-line" aria-label="מה קורה עם כל אחד">
-        <div class="relative mx-2 mb-1 h-2 rounded-full bg-gradient-to-l from-brand-300 via-brand-600 to-money"></div>
-        <div class="grid grid-cols-3 text-[12px] leading-snug">
-          <span><b class="block text-[13px]">יום 1</b>עוקבים אחריו</span>
-          <span class="text-center"><b class="block text-[13px]">ימים 2-9</b>נכנס לפרופיל, עוקב בחזרה</span>
-          <span class="text-end"><b class="block text-[13px]">יום 10</b>מורידים מעקב. הוא נשאר עוקב שלך</span>
-        </div>
-      </div>
-      <ul class="mb-3 grid gap-1.5 text-[14px] sm:grid-cols-3">
-        ${[['clock', '0 דקות ממך ביום'], ['users', 'אנשים מהקהל שלך, לא בוטים'], ['sparkles', 'התוכן שיצרת כאן גורם להם להישאר']].map(([icon, text]) => html`<li key=${text} class="flex items-center gap-1.5"><${Icon} name=${icon} size=${15} class="shrink-0 text-money" />${text}</li>`)}
-      </ul>
-      <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border-[1.5px] border-money/40 bg-money-50 p-3">
-        <span><b class="font-display text-[26px] leading-none">${money(GROWTH_PRICE)}</b> <span class="text-[14px] font-bold">+ מע"מ לחודש</span></span>
-        <span class="flex items-center gap-1.5 text-[14px] font-bold text-money"><${Icon} name="shield-check" size=${16} />בלי התחייבות. מבטלים בכל שלב</span>
-      </div>
-    </div>`}
+    ${step === 'offer' && html`<${GrowOffer} />`}
     ${step === 'pay' && html`<div>
       <ul class="mb-3 overflow-hidden rounded-xl bg-white text-[15px] ring-1 ring-line">
         <li class="flex justify-between border-b border-line px-3 py-2"><span>צמיחת עוקבים אוטומטית · חודשי</span><b>${money(GROWTH_PRICE)}</b></li>
@@ -304,7 +380,7 @@ export function GrowthSheet({ cfg, setCfg, notify, onClose }) {
     </div>`}
     ${step === 'done' && html`<div>
       <p class="mb-2 flex items-center gap-2 text-[17px] font-bold"><${SharkAvatar} size=${36} mood="happy" />מתחילים תוך 24 שעות</p>
-      <p class="text-[15px]">מהיום החשבון שלך עוקב כל יום אחרי אנשים מהקהל שבחרת, ומוריד מעקב אחרי 10 ימים. את העוקבים החדשים של כל שבוע רואים בדף הבית. הסיסמה עברה ישר לשירות, ולא נשמרה אצלנו.</p>
+      <p class="text-[15px]">מהיום התוכנה עוקבת בשבילך כל יום אחרי אנשים מהקהל שבחרת, ומורידה מעקב אחרי 10 ימים. ככה מגיעים 2 עד 4 עוקבים חדשים ורלוונטיים בכל יום, ורואים אותם בדף הבית. הסיסמה עברה ישר לשירות, ולא נשמרה אצלנו.</p>
     </div>`}
   <//>`;
 }

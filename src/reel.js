@@ -6,21 +6,44 @@ import { html, useState, useEffect, useRef, Icon, PencilCheck, cx } from './lib.
 import { Button } from './components.js';
 import { Sheet, Tag } from './ui.js';
 import { Canvas, ReelFrame, ReelCover, CAP_STYLES } from './art.js';
-import { LIMITS, TRANSCRIPT, REEL_STAGES, captionLines, fmtSec } from './content.js';
+import { LIMITS, AD_LIB, REEL_STAGES, captionLines, spoken, fitCaps, capAt, fmtSec } from './content.js';
 
 // Uploaded files live only in this tab (an object URL per item). After a reload the
 // mockup falls back to the sample video.
 const FILES = {};
 export const reelFile = (id) => FILES[id] || null;
-// The uploaded video inside a reel frame, playing while "playing" is on.
-export function VideoMedia({ src, playing }) {
+export const dropFile = (id) => {
+  if (FILES[id]) URL.revokeObjectURL(FILES[id]);
+  delete FILES[id];
+};
+// Calls fn with the video's time on every frame while it plays (timeupdate is only 4 a second,
+// too slow for captions), and loops inside the trim.
+function useFrameTime(ref, playing, trim, fn) {
+  useEffect(() => {
+    if (!playing) return;
+    let id;
+    const tick = () => {
+      const v = ref.current;
+      if (v && trim && v.currentTime >= trim[1]) v.currentTime = trim[0];
+      if (v) fn(v.currentTime);
+      id = requestAnimationFrame(tick);
+    };
+    id = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(id);
+  }, [playing, trim && trim[0], trim && trim[1]]);
+}
+// The uploaded video inside a reel frame, playing while "playing" is on, inside the trim.
+export function VideoMedia({ src, playing, trim, onTime }) {
   const ref = useRef(null);
   useEffect(() => {
     const v = ref.current;
     if (!v) return;
-    if (playing) v.play().catch(() => {});
-    else v.pause();
+    if (playing) {
+      if (trim && (v.currentTime < trim[0] || v.currentTime >= trim[1])) v.currentTime = trim[0];
+      v.play().catch(() => {});
+    } else v.pause();
   }, [playing]);
+  useFrameTime(ref, playing, trim, (x) => onTime && onTime(x));
   return html`<video ref=${ref} src=${src} muted loop playsinline style=${{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#000' }} />`;
 }
 export const REEL_DEFAULT = { trim: null, hook: true, caps: true, logo: true, capStyle: 'box', silence: true, noise: true, cover: 'design', coverAt: 1, edited: false };
@@ -36,7 +59,7 @@ const Box = ({ title, aside, children }) => html`<section class="border-t border
   <p class="mb-1.5 flex items-center justify-between gap-2 text-[13px] font-bold">${title}${aside}</p>${children}
 </section>`;
 
-export function ReelSheet({ item, st, setIt, tpl, p, photo, hook, startAt = 'pick', notify, onClose }) {
+export function ReelSheet({ item, st, setIt, tpl, p, photo, hook, script, startAt = 'pick', notify, onDelete, onClose }) {
   const [step, setStep] = useState(startAt === 'edit' && st.video === 'ready' ? 'edit' : 'pick');
   const [src, setSrc] = useState(FILES[item.id] || null);
   const [stage, setStage] = useState(0);
@@ -74,7 +97,7 @@ export function ReelSheet({ item, st, setIt, tpl, p, photo, hook, startAt = 'pic
     if (step !== 'process') return;
     if (stage === 2 && !names) return;
     if (stage >= stages.length) {
-      setCaps(captionLines(TRANSCRIPT.filter((x, i) => !(names === 'cut' && i === 2)).map((x) => (names === 'name' ? x.replace('לנועה ', '') : x))));
+      setCaps(captionLines(spoken(script, names)));
       setStep('edit');
       return;
     }
@@ -120,23 +143,25 @@ export function ReelSheet({ item, st, setIt, tpl, p, photo, hook, startAt = 'pic
       </div>`)}
       ${stage === 2 && !names && html`<div class="rise rounded-xl bg-warn-50 p-3 text-[14px]">
         <p class="mb-1 font-bold text-warn"><${Icon} name="user-x" size=${15} class="me-1 inline" />השם נועה מופיע בטבלת הלידים</p>
-        <p class="mb-2">"${TRANSCRIPT[2]}" · בתוכן לא מזכירים לקוח מסוים.</p>
+        <p class="mb-2">"${AD_LIB}" · בתוכן לא מזכירים לקוח מסוים.</p>
         <div class="flex flex-wrap gap-2"><${Button} variant="mini" onClick=${() => setNames('cut')}>לחתוך את המשפט<//><${Button} variant="quiet" onClick=${() => setNames('name')}>להשמיט רק את השם<//></div>
       </div>`}
     </div>`}
-    ${step === 'edit' && html`<${ReelEdit} src=${src} caps=${caps} setCaps=${setCaps} reel=${reel} setReel=${(patch) => setReel((r) => ({ ...r, ...patch }))} names=${names} tpl=${tpl} p=${p} photo=${photo} hook=${hook} onReplace=${() => setStep('pick')} />`}
+    ${step === 'edit' && html`<${ReelEdit} src=${src} caps=${caps} setCaps=${setCaps} reel=${reel} setReel=${(patch) => setReel((r) => ({ ...r, ...patch }))} names=${names} tpl=${tpl} p=${p} photo=${photo} hook=${hook} onReplace=${() => setStep('pick')} onDelete=${st.video === 'ready' && (() => (onDelete(), onClose()))} />`}
   <//>`;
 }
 
 // The editor: the player on one side, the edits on the other.
-function ReelEdit({ src, caps, setCaps, reel, setReel, names, tpl, p, photo, hook, onReplace }) {
+function ReelEdit({ src, caps, setCaps, reel, setReel, names, tpl, p, photo, hook, onReplace, onDelete }) {
   const video = useRef(null);
   const capsEnd = caps.length ? caps[caps.length - 1].to + 0.4 : 30;
   const [dur, setDur] = useState(src ? 0 : capsEnd);
   const trim = reel.trim || [0, dur];
   const [t, setT] = useState(trim[0]);
   const [playing, setPlaying] = useState(false);
-  // The sample video: the time runs on a timer. A real video: the player's own time.
+  const [askDel, setAskDel] = useState(false);
+  // The sample video: the time runs on a timer. A real video: the player's own time, every frame.
+  useFrameTime(video, playing && !!src && !!dur, trim, setT);
   useEffect(() => {
     if (!playing || src) return;
     const id = setInterval(() => setT((x) => (x + 0.1 >= trim[1] ? trim[0] : x + 0.1)), 100);
@@ -164,14 +189,18 @@ function ReelEdit({ src, caps, setCaps, reel, setReel, names, tpl, p, photo, hoo
   const gotDur = (d) => {
     const v = Math.min(180, d);
     setDur(v);
+    setCaps(fitCaps(caps, v));
     if (!reel.trim || reel.trim[1] > v) setReel({ trim: [0, v] });
   };
   const rel = t - trim[0];
-  const cap = reel.caps ? caps.find((c) => rel >= c.from && rel < c.to + 0.1)?.text : null;
+  // Captions keep their place in the video: cutting the start cuts its lines too.
+  const now = capAt(caps, t);
+  const cap = reel.caps ? now?.text : null;
+  const shift = (d) => setCaps(caps.map((c) => ({ ...c, from: Math.max(0, +(c.from + d).toFixed(2)), to: Math.max(0.3, +(c.to + d).toFixed(2)) })));
   const media = src && html`<video ref=${video} src=${src} playsinline muted=${false} style=${{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
     onLoadedMetadata=${(e) => (Number.isFinite(e.target.duration) ? gotDur(e.target.duration) : (e.target.currentTime = 1e101))}
     onDurationChange=${(e) => { if (Number.isFinite(e.target.duration) && !dur) { gotDur(e.target.duration); e.target.currentTime = 0; } }}
-    onTimeUpdate=${(e) => { if (!dur) return; const x = e.target.currentTime; if (x >= trim[1]) e.target.currentTime = trim[0]; setT(Math.min(x, trim[1])); }} />`;
+    onTimeUpdate=${(e) => { if (!dur || playing) return; setT(Math.min(e.target.currentTime, trim[1])); }} />`;
   const pct = (x) => `${(x / (dur || 1)) * 100}%`;
   const range = 'fb-trim pointer-events-none absolute inset-0 h-full w-full appearance-none bg-transparent';
   return html`<div class="grid items-start gap-5 md:grid-cols-[230px_1fr]">
@@ -184,7 +213,9 @@ function ReelEdit({ src, caps, setCaps, reel, setReel, names, tpl, p, photo, hoo
         <input type="range" dir="ltr" min=${trim[0]} max=${trim[1]} step="0.1" value=${t} onInput=${(e) => seek(+e.target.value)} class="fb-range fb-range-ltr min-w-0 flex-1" style=${{ '--p': `${((t - trim[0]) / (trim[1] - trim[0] || 1)) * 100}%` }} aria-label="מיקום בסרטון" />
         <span class="shrink-0 text-[12px] tabular-nums text-muted" dir="ltr">${fmtSec(rel)} / ${fmtSec(trim[1] - trim[0])}</span>
       </div>
-      <p class="mt-1 text-center text-[12px] text-muted">${src ? 'הסרטון שהעלית' : 'סרטון לדוגמה'} · <button type="button" class="font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${onReplace}>להחליף</button></p>
+      ${askDel
+        ? html`<p class="rise mt-1.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-lg bg-error-50 px-2 py-1.5 text-center text-[13px]"><b class="text-error">למחוק את הסרטון?</b><button type="button" class="font-bold text-error underline underline-offset-2 cursor-pointer" onClick=${onDelete}>כן, למחוק</button><button type="button" class="font-bold text-muted underline underline-offset-2 cursor-pointer" onClick=${() => setAskDel(false)}>לא</button></p>`
+        : html`<p class="mt-1 text-center text-[12px] text-muted">${src ? 'הסרטון שהעלית' : 'סרטון לדוגמה'} · <button type="button" class="font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${onReplace}>להחליף</button>${onDelete && html` · <button type="button" class="font-bold text-error underline underline-offset-2 cursor-pointer" onClick=${() => setAskDel(true)}>למחוק</button>`}</p>`}
     </div>
     <div class="min-w-0">
       <${Box} title="חיתוך" aside=${html`<span class="text-[12px] font-normal text-muted" dir="rtl">מ-${fmtSec(trim[0])} עד ${fmtSec(trim[1])} · ${Math.round(trim[1] - trim[0])} שניות</span>`}>
@@ -231,11 +262,12 @@ function ReelEdit({ src, caps, setCaps, reel, setReel, names, tpl, p, photo, hoo
           <${Toggle2} on=${reel.noise} onClick=${() => setReel({ noise: !reel.noise })}>ניקוי רעשי רקע<//>
         </div>
       <//>
-      <${Box} title="הכתוביות" aside=${names && html`<${Tag}>${names === 'cut' ? 'משפט אחד נחתך' : 'השם הושמט'}<//>`}>
-        <ul class="thin-scroll max-h-[170px] overflow-y-auto rounded-xl bg-white ring-1 ring-line">
-          ${caps.map((c) => html`<li key=${c.id} class=${cx('flex items-center gap-2 border-b border-line px-2 py-0.5 last:border-0', cap === c.text && 'bg-brand-50')}>
-            <button type="button" aria-label="לקפוץ לשורה" class="grid h-7 w-7 shrink-0 place-items-center rounded-full text-brand-600 hover:bg-brand-100 cursor-pointer" onClick=${() => seek(trim[0] + c.from)}><${Icon} name="play" size=${13} /></button>
-            <span class="w-[36px] shrink-0 text-[12px] tabular-nums text-muted">${fmtSec(c.from)}</span>
+      <${Box} title="הכתוביות" aside=${html`<span class="flex items-center gap-1.5">${names && html`<${Tag}>${names === 'cut' ? 'משפט אחד נחתך' : 'השם הושמט'}<//>`}${src && html`<span class="flex items-center gap-1 text-[12px] font-normal text-muted">סנכרון<button type="button" class="h-6 rounded-md bg-canvas px-1.5 font-bold text-ink ring-1 ring-line cursor-pointer" onClick=${() => shift(-0.2)}>מוקדם יותר</button><button type="button" class="h-6 rounded-md bg-canvas px-1.5 font-bold text-ink ring-1 ring-line cursor-pointer" onClick=${() => shift(0.2)}>מאוחר יותר</button></span>`}</span>`}>
+        ${src && html`<p class="mb-1 text-[12px] leading-snug text-muted">כל שורה עולה כשאומרים אותה. בדמו אין תמלול, אז השורות לפי התסריט ופרושות על אורך הסרטון. מקדימות או מאחרות? "סנכרון".</p>`}
+        <ul class="thin-scroll max-h-[150px] overflow-y-auto rounded-xl bg-white ring-1 ring-line">
+          ${caps.map((c) => html`<li key=${c.id} class=${cx('flex items-center gap-2 border-b border-line px-2 py-0.5 last:border-0', now && now.id === c.id && 'bg-brand-50', (c.to < trim[0] || c.from > trim[1]) && 'opacity-45')}>
+            <button type="button" aria-label="לקפוץ לשורה" class="grid h-7 w-7 shrink-0 place-items-center rounded-full text-brand-600 hover:bg-brand-100 cursor-pointer" onClick=${() => seek(c.from + 0.01)}><${Icon} name="play" size=${13} /></button>
+            <span class="w-[36px] shrink-0 text-[12px] tabular-nums text-muted" dir="ltr">${fmtSec(c.from)}.${Math.floor((c.from % 1) * 10)}</span>
             <input class="h-8 min-w-0 flex-1 rounded-lg border border-transparent px-1.5 text-[15px] hover:border-line focus:border-brand-600 focus:outline-none" value=${c.text} onInput=${(e) => setCaps(caps.map((x) => (x.id === c.id ? { ...x, text: e.target.value } : x)))} aria-label="שורת כתובית" />
             <span class=${cx('text-[12px] font-bold tabular-nums', c.text.length > LIMITS.capChars ? 'text-error' : 'text-muted')}>${c.text.length}/${LIMITS.capChars}</span>
           </li>`)}

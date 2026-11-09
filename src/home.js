@@ -65,8 +65,8 @@ export function Home({ state, setCfg, go, onGrow, onNextWeek }) {
         </div>`}
       </section>
       <section class=${cx('fb-panel !p-4', cfg.growth !== 'active' && 'border-[1.5px] border-money/40')}>
-        <h2 class="fb-h3 mb-1 flex items-center gap-2"><${Icon} name="trending-up" size=${19} class="text-money" />${cfg.growth === 'active' ? 'צמיחת העוקבים' : 'עוקבים חדשים, בלי מאמץ'}</h2>
-        <p class="mb-2 text-[14px]">${cfg.growth === 'active' ? 'פעילה. כל יום עוקבים אחרי אנשים מהקהל שבחרת, ואחרי 10 ימים מורידים מעקב.' : cfg.growth === 'paid' ? 'התשלום עבר. חסרים העמודים הדומים והחשבון באינסטגרם.' : 'עוקבים אוטומטית אחרי הקהל שלך, כדי שיגיעו לתוכן. 350 ₪ + מע"מ לחודש, בלי התחייבות.'}</p>
+        <h2 class="fb-h3 mb-1 flex items-center gap-2"><${Icon} name="trending-up" size=${19} class="text-money" />${cfg.growth === 'active' ? 'צמיחת העוקבים' : '2 עד 4 עוקבים חדשים, כל יום'}</h2>
+        <p class="mb-2 text-[14px]">${cfg.growth === 'active' ? 'פעילה. כל יום עוקבים אחרי אנשים מהקהל שבחרת, ואחרי 10 ימים מורידים מעקב.' : cfg.growth === 'paid' ? 'התשלום עבר. חסרים העמודים הדומים והחשבון באינסטגרם.' : 'תוכנה חכמה שעוקבת בשבילך אחרי הקהל שלך, כדי שיגיעו לתוכן. 350 ₪ + מע"מ לחודש, בלי התחייבות.'}</p>
         ${cfg.growth !== 'active' && html`<${Button} variant="text" class="!h-auto !p-0" onClick=${onGrow}>${cfg.growth === 'paid' ? 'להשלים' : 'איך זה עובד'}<//>`}
       </section>
     </div>

@@ -6,11 +6,11 @@
 import { html, useState, useEffect, useRef, Icon, PencilCheck, PencilLine, cx, confetti, money } from './lib.js';
 import { Button, Note, StepHeading, SharkAvatar, SubStep } from './components.js';
 import { Chips, inputCls, Tag } from './ui.js';
-import { USER, BRAND, META, PAGE_LINK, PLATFORMS, STYLES, TEMPLATES, RECOMMENDED_TEMPLATE, TYPES, FORMATS, TOPICS, TOPIC_CHOICES, TOPIC_WHY, LAST_WEEK_STATS, OFFER, PARTS, PART_HINT, MAX_WEEKS, partLabel, partNo, weekDays, weekRange, MESSAGE_LINES, BIOS, WORDS, DESIGN, g } from './data.js';
+import { USER, BRAND, META, PAGE_LINK, PLATFORMS, STYLES, TEMPLATES, RECOMMENDED_TEMPLATE, TYPES, FORMATS, TOPICS, TOPIC_CHOICES, TOPIC_WHY, LAST_WEEK_STATS, OFFER, PARTS, PART_HINT, MAX_WEEKS, partLabel, partNo, weekDays, weekRange, MESSAGE_LINES, BIOS, BIO_PARTS, BIO_MAX, WORDS, DESIGN, g } from './data.js';
 import { Canvas, Slide, SLIDE_LOOK, SLIDE_ALIGN, ReelFrame, ReelCover, Flyer, PostImage, POST_LAYOUTS, POST_LOOK, LAYOUTS, FLYER_FONTS, FLYER_BG, FLYER_SIZES, FLYER_POS, FLYER_LOOK, palette } from './art.js';
-import { words, LIMITS, topicOf, checkText, postVersions, postQuote, CHANGES, changeOptions, carouselSlides, slideFields, reelScript, fmtSec } from './content.js';
+import { words, LIMITS, topicOf, checkText, postVersions, postQuote, CHANGES, changeOptions, carouselSlides, slideFields, reelScript, scriptSec, capAt, fmtSec } from './content.js';
 import { MetaSheet } from './publish.js';
-import { ReelSheet, reelOf, reelFile, VideoMedia } from './reel.js';
+import { ReelSheet, reelOf, reelFile, dropFile, VideoMedia } from './reel.js';
 
 export function Toggle({ on, onChange, label }) {
   return html`<button
@@ -636,21 +636,33 @@ function CarouselEditor({ item, st, setIt, flags, cfg }) {
 // (reel.js): the file, the processing, and then a player with the editing.
 function ReelEditor({ item, st, setIt, p, tpl, flags, notify, cfg }) {
   const tp = topicOf(item);
-  const script = reelScript(tp);
+  const script = reelScript(tp, typeof st.hook === 'number' ? st.hook : 0);
   const photo = photoOf(cfg, flags) || USER.photo;
   const [sheet, setSheet] = useState(null);
   const [playing, setPlaying] = useState(false);
-  const [cap, setCap] = useState(0);
+  const [askDel, setAskDel] = useState(false);
   const hook = st.hook === 'none' ? null : tp.hooks[st.hook];
   const ready = st.video === 'ready';
   const caps = st.caps || [];
   const reel = reelOf(st);
+  const file = ready && reelFile(item.id);
+  const trim = reel.trim || [0, caps.length ? caps[caps.length - 1].to + 0.4 : 0];
+  const len = trim[1] - trim[0];
+  const shown = caps.filter((c) => c.to > trim[0] && c.from < trim[1]).length;
+  // The preview plays in real time, so each caption shows while its words are said.
+  const [t, setT] = useState(trim[0]);
   useEffect(() => {
-    if (!playing || !caps.length) return;
-    const id = setInterval(() => setCap((c) => (c + 1) % caps.length), 650);
+    if (!playing || file) return;
+    const id = setInterval(() => setT((x) => (x + 0.1 >= trim[1] ? trim[0] : x + 0.1)), 100);
     return () => clearInterval(id);
-  }, [playing, caps.length]);
-  const len = reel.trim ? reel.trim[1] - reel.trim[0] : caps.length ? caps[caps.length - 1].to + 0.4 : 0;
+  }, [playing, file, trim[0], trim[1]]);
+  const del = () => {
+    dropFile(item.id);
+    setAskDel(false);
+    setPlaying(false);
+    setIt({ video: null, caps: null, names: null, reel: null });
+    notify('הסרטון נמחק. התסריט נשאר, ואפשר להעלות אחר', 'trash-2');
+  };
   return html`<div class="grid items-start gap-5 md:grid-cols-[1fr_190px]">
     <div class="min-w-0">
       <${SubStep} n="1" aside=${html`<small class="text-[12px] text-muted">למעלה לאורך כל הרילס</small>`}>בוחרים הוק<//>
@@ -662,7 +674,7 @@ function ReelEditor({ item, st, setIt, p, tpl, flags, notify, cfg }) {
         <button type="button" role="radio" aria-checked=${st.hook === 'none'} onClick=${() => setIt({ hook: 'none' })} class=${cx('rounded-xl border-[1.5px] bg-white px-2.5 py-1.5 text-start text-[14px] font-bold cursor-pointer', st.hook === 'none' ? 'border-brand-600 bg-brand-50' : 'border-line hover:border-brand-300')}>בלי הוק</button>
       </div>
       ${!ready &&
-      html`<${SubStep} n="2" class="!mb-1.5" aside=${html`<small class="text-[12px] text-muted">כ-${script.length > 5 ? 45 : 35} שניות</small>`}>התסריט<//>
+      html`<${SubStep} n="2" class="!mb-1.5" aside=${html`<small class="text-[12px] text-muted">כ-${Math.ceil(scriptSec(script) / 5) * 5} שניות, בקצב דיבור רגיל</small>`}>התסריט<//>
         <div class="mb-2 overflow-hidden rounded-xl bg-white text-[13px] ring-1 ring-line">
           <div class="grid grid-cols-[52px_1fr] bg-canvas text-[12px] font-bold text-muted sm:grid-cols-[52px_1.4fr_0.6fr]">
             <span class="px-2 py-0.5">שניות</span>
@@ -688,20 +700,27 @@ function ReelEditor({ item, st, setIt, p, tpl, flags, notify, cfg }) {
           <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-money-50 text-money"><${Icon} name="clapperboard" size=${22} /></span>
           <span class="min-w-0 flex-1">
             <b class="block text-[15px]">הסרטון מוכן · ${fmtSec(len)}</b>
-            <small class="block text-[13px] text-muted">${[reel.cover === 'frame' ? 'כריכה מהסרטון' : 'כריכה מעוצבת', reel.silence && '6 שתיקות קוצרו', reel.caps ? `${caps.length} שורות כתוביות` : 'בלי כתוביות', st.names === 'cut' ? 'משפט עם שם נחתך' : st.names === 'name' ? 'שם הושמט' : ''].filter(Boolean).join(' · ')}</small>
+            <small class="block text-[13px] text-muted">${[reel.cover === 'frame' ? 'כריכה מהסרטון' : 'כריכה מעוצבת', reel.silence && '6 שתיקות קוצרו', reel.caps ? `${shown} שורות כתוביות` : 'בלי כתוביות', st.names === 'cut' ? 'משפט עם שם נחתך' : st.names === 'name' ? 'שם הושמט' : ''].filter(Boolean).join(' · ')}</small>
           </span>
           <${Button} onClick=${() => setSheet('edit')}><${Icon} name="scissors" size=${16} />לערוך את הסרטון<//>
           <button type="button" class="text-[14px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => setSheet('pick')}>להחליף</button>
+          <button type="button" class="inline-flex items-center gap-1 text-[14px] font-bold text-error underline underline-offset-2 cursor-pointer" onClick=${() => setAskDel(true)}><${Icon} name="trash-2" size=${15} />למחוק</button>
         </div>
+        ${askDel && html`<div class="rise mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-error-50 p-2.5 text-[14px]" role="alertdialog" aria-label="מחיקת הסרטון">
+          <${Icon} name="trash-2" size=${16} class="text-error" />
+          <span class="min-w-0 flex-1"><b>למחוק את הסרטון?</b> התסריט וההוק נשארים, ואפשר להעלות סרטון אחר.</span>
+          <${Button} variant="mini" class="!bg-error !text-white" onClick=${del}>כן, למחוק<//>
+          <${Button} variant="quiet" onClick=${() => setAskDel(false)}>ביטול<//>
+        </div>`}
       </div>`}
     </div>
     <div class="mx-auto w-full max-w-[190px]">
       <button type="button" class="block w-full cursor-pointer" onClick=${() => (ready ? setPlaying((x) => !x) : setSheet('pick'))} aria-label=${ready ? (playing ? 'עצירה' : 'ניגון') : 'להעלות סרטון'}>
-        <${Canvas} w=${1080} h=${1920} round=${14}><${ReelFrame} t=${tpl} p=${p} hook=${reel.hook ? hook : null} caption=${ready ? (reel.caps ? caps[cap]?.text : null) : script[1].screen.split(' ').slice(0, 3).join(' ')} photo=${photo} playing=${playing || !ready} capStyle=${reel.capStyle} brand=${reel.logo} media=${ready && reelFile(item.id) && html`<${VideoMedia} src=${reelFile(item.id)} playing=${playing} />`} /><//>
+        <${Canvas} w=${1080} h=${1920} round=${14}><${ReelFrame} t=${tpl} p=${p} hook=${reel.hook ? hook : null} caption=${ready ? (reel.caps ? capAt(caps, t)?.text : null) : script[1].screen.split(' ').slice(0, 3).join(' ')} photo=${photo} playing=${playing || !ready} capStyle=${reel.capStyle} brand=${reel.logo} media=${file && html`<${VideoMedia} src=${file} playing=${playing} trim=${reel.trim} onTime=${setT} />`} /><//>
       </button>
       <p class="mt-1 text-center text-[12px] text-muted">${ready ? (playing ? 'לעצירה, לחיצה על הסרטון' : 'לניגון, לחיצה על הסרטון') : 'ככה ייראה הרילס'}</p>
     </div>
-    ${sheet && html`<${ReelSheet} item=${item} st=${st} setIt=${setIt} tpl=${tpl} p=${p} photo=${photo} hook=${hook} startAt=${sheet} notify=${notify} onClose=${() => setSheet(null)} />`}
+    ${sheet && html`<${ReelSheet} item=${item} st=${st} setIt=${setIt} tpl=${tpl} p=${p} photo=${photo} hook=${hook} script=${script} startAt=${sheet} notify=${notify} onDelete=${del} onClose=${() => setSheet(null)} />`}
   </div>`;
 }
 
@@ -878,8 +897,11 @@ export function Done({ cfg, setCfg, flags, notify, onGrow, onNextWeek }) {
     const o = !growing && cfg.growthAsked !== week ? setTimeout(() => (setCfg({ growthAsked: week }), onGrow()), 1600) : null;
     return () => (clearTimeout(t), clearTimeout(o));
   }, []);
-  const [tab, setTab] = useState('line');
-  const [ver, setVer] = useState(0);
+  const [line, setLine] = useState(0);
+  const bio = cfg.bio || { ver: 0, text: null };
+  const bioText = bio.text ?? BIOS[bio.ver].join(NL);
+  const [editBio, setEditBio] = useState(false);
+  const setBio = (patch) => setCfg({ bio: { ...bio, ...patch } });
   const scheduled = cfg.plan.filter((i) => cfg.sched[i.id]?.status === 'scheduled').length;
   const manual = cfg.plan.filter((i) => ['manual', 'posted'].includes(cfg.sched[i.id]?.status)).length;
   const rows = [
@@ -887,8 +909,7 @@ export function Done({ cfg, setCfg, flags, notify, onGrow, onNextWeek }) {
     ...(week === 1 ? [['image', 'הפלייר', 'בקבצים, מחכה לשלב 11'], ['palette', 'המראה', `תבנית ${tplOf(cfg).n}: ${tplOf(cfg).name}`]] : []),
     ['link', 'הקישור', 'כל פוסט מסומן במקור שלו בטבלת הלידים'],
   ];
-  const texts = tab === 'line' ? MESSAGE_LINES.map((m) => m.text) : BIOS.map((b) => b.join(NL));
-  return html`<div class="mx-auto grid max-w-[1080px] items-start gap-6 px-4 py-5 md:grid-cols-[1.3fr_0.7fr] md:px-8 md:py-7">
+  return html`<div class="mx-auto grid max-w-[1080px] items-start gap-6 px-4 py-5 md:grid-cols-[1.15fr_0.85fr] md:px-8 md:py-5">
     <div class="min-w-0">
       <p class="fb-eyebrow mb-1">${week === 1 ? 'סיימת את שלב 10 · מביאים לקוחות' : `שבוע ${week} · ${weekRange()}`}</p>
       <h1 class="fb-h1 mb-3 text-[28px] md:text-[34px]">${week === 1 ? `שבוע התוכן של ${USER.business} ` : `שבוע ${week} `}<span class="marker">${week === 1 ? 'מוכן' : 'בלוח'}</span></h1>
@@ -900,12 +921,12 @@ export function Done({ cfg, setCfg, flags, notify, onGrow, onNextWeek }) {
       <${NextWeek} cfg=${cfg} setCfg=${setCfg} onNextWeek=${onNextWeek} />
       <section class=${cx('fb-panel flex flex-wrap items-center gap-3 !p-3', !growing && 'border-[1.5px] border-money/40')}>
         <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-money-50 text-money"><${Icon} name="trending-up" size=${20} /></span>
-        <span class="min-w-0 flex-1"><b class="block text-[15px]">${growing ? 'צמיחת העוקבים פעילה' : 'עוקבים חדשים, בלי מאמץ'}</b><small class="block text-[13px] text-muted">${growing ? 'עוקבים חדשים מהקהל שבחרת, כל יום. המספרים בדף הבית.' : cfg.growth === 'paid' ? 'התשלום עבר. חסרים העמודים הדומים והחשבון באינסטגרם.' : 'עוקבים אוטומטית אחרי הקהל שלך, כדי שיגיעו לתוכן. 350 ₪ + מע"מ לחודש, בלי התחייבות.'}</small></span>
+        <span class="min-w-0 flex-1"><b class="block text-[15px]">${growing ? 'צמיחת העוקבים פעילה' : '2 עד 4 עוקבים חדשים, כל יום'}</b><small class="block text-[13px] text-muted">${growing ? '2 עד 4 עוקבים חדשים מהקהל שבחרת, כל יום. המספרים בדף הבית.' : cfg.growth === 'paid' ? 'התשלום עבר. חסרים העמודים הדומים והחשבון באינסטגרם.' : 'תוכנה חכמה שעוקבת בשבילך אחרי הקהל שלך, כדי שיגיעו לתוכן. 350 ₪ + מע"מ לחודש, בלי התחייבות.'}</small></span>
         ${!growing && html`<${Button} variant="secondary" onClick=${onGrow}>${cfg.growth === 'paid' ? 'להשלים' : 'איך זה עובד'}<//>`}
       </section>
     </div>
-    <div class="flex flex-col gap-4">
-      <div class="flex justify-center pt-2">
+    <div class="flex flex-col gap-3">
+      <div class="flex justify-center">
         ${week === 1
           ? html`<${Note} tone="gold" tilt=${-2} class="fb-badge-note !pt-10">
               <span class="fb-note-kicker">תג חדש</span>
@@ -919,10 +940,36 @@ export function Done({ cfg, setCfg, flags, notify, onGrow, onNextWeek }) {
               <span class="text-[15px] font-bold">שבועות של תוכן ברצף</span>
             <//>`}
       </div>
-      ${week === 1 && html`<section class="fb-panel !p-4">
-        <div class="mb-2 flex items-center justify-between gap-2"><h2 class="fb-h3">להעתקה</h2><${Mini} options=${[{ id: 'line', label: 'משפט מסר' }, { id: 'bio', label: 'ביו לאינסטגרם' }]} value=${tab} onChange=${(v) => (setTab(v), setVer(0))} /></div>
-        <div class="flex items-start justify-between gap-2 rounded-xl bg-canvas p-3 text-[15px] font-bold leading-relaxed"><span class="whitespace-pre-line">${texts[ver]}</span><${Button} variant="quiet" class="!h-8 shrink-0" onClick=${() => notify('הועתק', 'copy')}><${Icon} name="copy" size=${15} /><//></div>
-        <div class="mt-2 flex items-center justify-between text-[13px] text-muted"><span>גרסה ${ver + 1} מתוך 3</span><button type="button" class="font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => setVer((v) => (v + 1) % 3)}>גרסה אחרת</button></div>
+      ${week === 1 && html`<section class="fb-panel overflow-hidden !p-0 ring-2 ring-[#e1306c]/30" aria-label="הביו לאינסטגרם">
+        <div class="flex items-center gap-2 bg-gradient-to-l from-[#f58529] via-[#dd2a7b] to-[#8134af] px-4 py-2 text-white">
+          <${Icon} name="instagram" size=${18} />
+          <h2 class="flex-1 text-[16px] font-bold">הביו שלך לאינסטגרם</h2>
+          <span class=${cx('rounded-full px-2 py-0.5 text-[12px] font-bold tabular-nums', bioText.length > BIO_MAX ? 'bg-white text-error' : 'bg-white/20')} dir="ltr">${bioText.length}/${BIO_MAX}</span>
+        </div>
+        <div class="p-3.5">
+          <div class="mb-2 flex items-center gap-2.5">
+            <img src=${photoOf(cfg, flags) || USER.photo} alt="" class="h-11 w-11 rounded-full object-cover ring-2 ring-[#e1306c] ring-offset-2" />
+            <span class="min-w-0"><b class="block text-[15px] leading-tight">${USER.business}</b><small class="block text-[12px] text-muted" dir="ltr">@${META.ig.handle}</small></span>
+          </div>
+          ${editBio
+            ? html`<textarea rows="4" class=${cx(inputCls, '!h-auto resize-none !py-2 text-[14px] font-bold leading-snug')} value=${bioText} onInput=${(e) => setBio({ text: e.target.value })} aria-label="הביו"></textarea>`
+            : html`<ul class="flex flex-col gap-1">
+                ${bioText.split(NL).map((l, i) => html`<li key=${i} class="flex items-baseline justify-between gap-2">
+                  <span class="text-[14.5px] font-bold leading-snug">${l}</span>
+                  ${BIO_PARTS[i] && html`<span class="shrink-0 whitespace-nowrap rounded-md bg-canvas px-1.5 py-px text-[11px] font-bold text-muted">${BIO_PARTS[i]}</span>`}
+                </li>`)}
+              </ul>`}
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <${Button} class="!h-9" onClick=${() => notify('הביו הועתק. באינסטגרם: עריכת פרופיל, ואז ביו', 'copy')}><${Icon} name="copy" size=${15} />להעתיק את הביו<//>
+            <button type="button" class="text-[13px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => setEditBio((x) => !x)}>${editBio ? 'סיום עריכה' : 'לערוך'}</button>
+            <button type="button" class="text-[13px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => (setEditBio(false), setBio({ ver: (bio.ver + 1) % BIOS.length, text: null }))}>גרסה אחרת (${bio.ver + 1}/${BIOS.length})</button>
+          </div>
+        </div>
+      </section>
+      <section class="fb-panel flex items-center gap-2 !px-3 !py-2" aria-label="משפט מסר">
+        <span class="min-w-0 flex-1"><small class="block text-[12px] font-bold text-muted">משפט מסר</small><span class="block text-[14px] font-bold leading-snug">${MESSAGE_LINES[line].text}</span></span>
+        <button type="button" aria-label="משפט אחר" class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-brand-600 hover:bg-brand-50 cursor-pointer" onClick=${() => setLine((x) => (x + 1) % MESSAGE_LINES.length)}><${Icon} name="refresh-cw" size=${15} /></button>
+        <button type="button" aria-label="להעתיק" class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-brand-600 hover:bg-brand-50 cursor-pointer" onClick=${() => notify('הועתק', 'copy')}><${Icon} name="copy" size=${15} /></button>
       </section>`}
     </div>
   </div>`;

@@ -329,10 +329,18 @@ export const MESSAGE_LINES = [
   { id: 'aud', label: 'מהקהל', text: 'טיפול CBT לחרדה למבוגרים ולנוער, בקליניקה ברמת גן ובזום.' },
   { id: 'res', label: 'מהתוצאה', text: 'לחזור לישון, לנסוע ולהיפגש, בלי לתכנן הכול סביב הפחד.' },
 ];
+// The Instagram bio: up to 150 characters, 4 lines, each with a job:
+// 1. why come and stay: the client's dream, and the end of their nightmare
+// 2. the product, tied to the dream
+// 3. proof: client results, or if there are none yet, achievements (training, years, a known place)
+// 4. a call to action, with the dream (a free first step: a call, a meeting on me)
+// Proof uses only what is in the client file; never a number of clients or results we don't have.
+export const BIO_PARTS = ['החלום, בלי הסיוט', 'המוצר', 'הוכחה', 'הנעה לפעולה'];
+export const BIO_MAX = 150;
 export const BIOS = [
-  [`${PROFILES[GENDER].fullName} · ${g('עובד סוציאלי קליני', 'עובדת סוציאלית קלינית')} · CBT לחרדה`, g('עוזר למבוגרים ולנוער לחזור לחיים בלי לתכנן סביב הפחד', 'עוזרת למבוגרים ולנוער לחזור לחיים בלי לתכנן סביב הפחד'), 'לשיחת היכרות בלי עלות ↓'],
-  ['מרחב שקט · טיפול בחרדה', 'כלים מעשיים לחרדה, צעד אחד בכל שבוע', 'קליניקה ברמת גן · זום ↓'],
-  ['חרדה היא תגובה, לא תכונה', `${g('מטפל', 'מטפלת')} CBT · 8 שנים בקליניקה`, 'טיפים כל שבוע, ושיחת היכרות ↓'],
+  ['לחזור לחיים, בלי לתכנן הכול סביב החרדה', 'תהליך CBT של 12 מפגשים, גם בזום', g('עו״ס קליני · 8 שנים בטיפול בחרדה', 'עו״ס קלינית · 8 שנים בטיפול בחרדה'), 'לשיחת היכרות בחינם, צעד ראשון לשקט ↓'],
+  ['לישון בשקט ולצאת מהבית בלי פחד', 'טיפול CBT קצר לחרדה, למבוגרים ולנוער', '8 שנים של טיפול CBT בחרדה', 'לפגישת היכרות על חשבוני, בקישור ↓'],
+  ['שקט בראש, בלי שהחרדה תנהל לכם את היום', 'כלים מעשיים לחרדה, צעד אחד בכל שבוע', g('עו״ס קליני · 8 שנים בקליניקה', 'עו״ס קלינית · 8 שנים בקליניקה'), 'לשיחת היכרות בחינם, ולהתחיל לנשום ↓'],
 ];
 
 // Grow AI, the provider behind "follower growth" (follow, unfollow after 10 days). The name
