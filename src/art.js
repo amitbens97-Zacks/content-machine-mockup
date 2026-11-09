@@ -92,38 +92,52 @@ function Brand({ p, noLogo, size = 76, light }) {
 const box = (p, t, extra = {}) => ({ position: 'absolute', inset: 0, background: p.bg, color: p.ink, fontFamily: `'${t.font}', Assistant, sans-serif`, overflow: 'hidden', ...extra });
 const hl = (t, p) => (t.decor === 'grid' ? { background: `linear-gradient(transparent 58%, ${t.own.a} 58%, ${t.own.a} 92%, transparent 92%)` } : {});
 
-// ---------- carousel slide / post image, 1080x1350 ----------
-export function Slide({ s, t, p, i = 0, total = 1, noLogo }) {
-  const pad = { position: 'absolute', top: '150px', right: '96px', left: '96px', bottom: '170px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '34px', zIndex: 1 };
-  const num = t.decor === 'magazine' ? { font: `900 230px Heebo`, color: t.own.a, lineHeight: 0.8 } : { font: `800 64px Rubik`, color: p.a };
+// ---------- carousel slide, 1080x1350 ----------
+// "look" is the carousel's own design (background, text size, font, alignment, what
+// shows), the same for all its slides. With "edit", the texts are edited on the slide.
+export const SLIDE_LOOK = { tpl: '', swatch: 0, bg: 'light', size: 'm', font: '', align: 'right', show: { logo: true, num: true, swipe: true } };
+export const SLIDE_ALIGN = [{ id: 'right', label: 'לימין' }, { id: 'center', label: 'למרכז' }];
+export function Slide({ s, t, p: base, i = 0, total = 1, noLogo, look, edit }) {
+  const L = { ...SLIDE_LOOK, ...(look || {}), show: { ...SLIDE_LOOK.show, ...(look?.show || {}) } };
+  const p = flyerPalette(base, L.bg);
+  const k = (FLYER_SIZES.find((x) => x.id === L.size) || FLYER_SIZES[1]).k;
+  const F = L.font || t.font;
+  const z = (n) => Math.round(n * k);
+  const mid = L.align === 'center';
+  const E = (key, value, style, Tag = 'span') => (edit
+    ? html`<${EditText} key=${key} k=${key} value=${value} style=${style} tag=${Tag} edit=${edit} />`
+    : html`<${Tag} style=${style}>${value}<//>`);
+  const pad = { position: 'absolute', top: '150px', right: '96px', left: '96px', bottom: '170px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: mid ? 'center' : 'stretch', textAlign: mid ? 'center' : 'right', gap: '34px', zIndex: 1 };
+  const num = t.decor === 'magazine' ? { font: `900 230px Heebo`, color: L.bg === 'color' ? p.a : t.own.a, lineHeight: 0.8 } : { font: `800 64px Rubik`, color: p.a };
+  const mark = L.bg === 'color' ? {} : hl(t, p);
   let inner;
   if (s.kind === 'cover')
-    inner = html`<span style=${{ alignSelf: 'flex-start', padding: '10px 28px', borderRadius: '999px', background: p.a, color: p.onA, font: t.decor === 'polaroid' ? `700 52px 'Amatic SC'` : `700 36px Rubik` }}>${s.opener}</span>
-      <h1 style=${{ font: `800 92px/1.12 '${t.font}', Rubik`, margin: 0 }}><span style=${hl(t, p)}>${s.title}</span></h1>
-      ${s.sub && html`<p style=${{ font: `500 44px/1.35 Assistant`, margin: 0, opacity: 0.88 }}>${s.sub}</p>`}`;
+    inner = html`<span style=${{ alignSelf: mid ? 'center' : 'flex-start', padding: '10px 28px', borderRadius: '999px', background: p.a, color: p.onA, font: t.decor === 'polaroid' ? `700 52px 'Amatic SC'` : `700 36px Rubik` }}>${E('opener', s.opener, {})}</span>
+      <h1 style=${{ font: `800 ${z(92)}px/1.12 '${F}', Rubik`, margin: 0 }}>${E('title', s.title, mark)}</h1>
+      ${s.sub && E('sub', s.sub, { display: 'block', font: `500 ${z(44)}px/1.35 Assistant`, margin: 0, opacity: 0.88 }, 'p')}`;
   else if (s.kind === 'content')
-    inner = html`<span style=${num}>${String(s.n).padStart(2, '0')}</span>
-      <h2 style=${{ font: `800 74px/1.15 '${t.font}', Rubik`, margin: 0 }}><span style=${hl(t, p)}>${s.title}</span></h2>
-      ${s.body && html`<p style=${{ font: `500 46px/1.42 Assistant`, margin: 0 }}>${s.body}</p>`}`;
+    inner = html`${L.show.num && html`<span style=${num}>${String(s.n).padStart(2, '0')}</span>`}
+      <h2 style=${{ font: `800 ${z(74)}px/1.15 '${F}', Rubik`, margin: 0 }}>${E('title', s.title, mark)}</h2>
+      ${s.body && E('body', s.body, { display: 'block', font: `500 ${z(46)}px/1.42 Assistant`, margin: 0 }, 'p')}`;
   else if (s.kind === 'summary')
-    inner = html`<h2 style=${{ font: `800 78px/1.15 '${t.font}', Rubik`, margin: 0 }}><span style=${hl(t, p)}>${s.title}</span></h2>
-      <ul style=${{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: '26px' }}>
-        ${s.points.map((x) => html`<li style=${{ display: 'flex', gap: '22px', alignItems: 'flex-start', font: `600 46px/1.35 Assistant` }}><span style=${{ flex: 'none', marginTop: '14px', width: '30px', height: '30px', borderRadius: t.decor === 'grid' || t.decor === 'magazine' ? '4px' : '999px', background: p.a }}></span>${x}</li>`)}
+    inner = html`<h2 style=${{ font: `800 ${z(78)}px/1.15 '${F}', Rubik`, margin: 0 }}>${E('title', s.title, mark)}</h2>
+      <ul style=${{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: '26px', textAlign: 'right' }}>
+        ${s.points.map((x, n) => html`<li key=${n} style=${{ display: 'flex', gap: '22px', alignItems: 'flex-start', font: `600 ${z(46)}px/1.35 Assistant` }}><span style=${{ flex: 'none', marginTop: '14px', width: '30px', height: '30px', borderRadius: t.decor === 'grid' || t.decor === 'magazine' ? '4px' : '999px', background: p.a }}></span>${E(`points.${n}`, x, {})}</li>`)}
       </ul>`;
   else if (s.kind === 'cta')
-    inner = html`<h2 style=${{ font: `800 84px/1.15 '${t.font}', Rubik`, margin: 0 }}>${s.title}</h2>
-      <p style=${{ display: 'flex', alignItems: 'center', gap: '18px', font: `700 42px/1.3 Assistant`, margin: 0, color: p.a }}>
-        <svg width="44" height="54" viewBox="0 0 22 27"><path d="M2 2h18v23l-9-6-9 6z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" /></svg>${s.save}
+    inner = html`<h2 style=${{ font: `800 ${z(84)}px/1.15 '${F}', Rubik`, margin: 0 }}>${E('title', s.title, {})}</h2>
+      <p style=${{ display: 'flex', alignItems: 'center', justifyContent: mid ? 'center' : 'flex-start', gap: '18px', font: `700 ${z(42)}px/1.3 Assistant`, margin: 0, color: p.a }}>
+        <svg width="44" height="54" viewBox="0 0 22 27" style="flex:none"><path d="M2 2h18v23l-9-6-9 6z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" /></svg>${E('save', s.save, {})}
       </p>`;
   else if (s.kind === 'quote')
     inner = html`<span style=${{ font: `900 220px/0.6 Rubik`, color: p.a, height: '110px' }}>”</span>
-      <p style=${{ font: `800 74px/1.25 '${t.font}', Rubik`, margin: 0 }}><span style=${hl(t, p)}>${s.title}</span></p>`;
-  return html`<div style=${box(p, t)}>
+      <p style=${{ font: `800 ${z(74)}px/1.25 '${F}', Rubik`, margin: 0 }}><span style=${mark}>${s.title}</span></p>`;
+  return html`<div style=${box(p, t, { fontFamily: `'${F}', Assistant, sans-serif` })}>
     <${Decor} t=${t} p=${p} />
     <div style=${pad}>${inner}</div>
-    <div style=${{ position: 'absolute', right: '96px', bottom: '70px', zIndex: 1 }}><${Brand} p=${p} noLogo=${noLogo} /></div>
-    ${s.kind === 'cover' && total > 1 && html`<span style=${{ position: 'absolute', left: '96px', bottom: '86px', zIndex: 1, font: `700 36px Assistant`, color: p.a }}>${s.swipe || 'החליקו לצד'} ←</span>`}
-    ${total > 1 && s.kind !== 'cover' && html`<span style=${{ position: 'absolute', left: '96px', bottom: '86px', zIndex: 1, font: `700 32px Rubik`, opacity: 0.6 }}>${i + 1}/${total}</span>`}
+    ${L.show.logo && html`<div style=${{ position: 'absolute', right: '96px', bottom: '70px', zIndex: 1 }}><${Brand} p=${p} noLogo=${noLogo} /></div>`}
+    ${s.kind === 'cover' && total > 1 && L.show.swipe && html`<span style=${{ position: 'absolute', left: '96px', bottom: '86px', zIndex: 1, font: `700 36px Assistant`, color: p.a }}>${s.swipe || 'החליקו לצד'} ←</span>`}
+    ${total > 1 && s.kind !== 'cover' && L.show.num && html`<span style=${{ position: 'absolute', left: '96px', bottom: '86px', zIndex: 1, font: `700 32px Rubik`, opacity: 0.6 }}>${i + 1}/${total}</span>`}
   </div>`;
 }
 
@@ -208,6 +222,21 @@ export function ReelFrame({ t, p, hook, caption, photo, playing, media, capStyle
   </div>`;
 }
 
+// ---------- reel cover, 1080x1920 ----------
+// A cover of its own (Instagram takes it as cover_url), not a frame of the video: the
+// user's photo and the hook, in the template. Everything sits inside the middle 1080x1440
+// that the profile grid shows.
+export function ReelCover({ t, p, photo, hook, noLogo }) {
+  return html`<div style=${box(p, t)}>
+    <${Decor} t=${t} p=${p} h=${1920} />
+    <${Photo} src=${photo} frame=${{ top: '300px', right: '170px', width: '740px', height: '760px', borderRadius: '370px 370px 30px 30px', border: `14px solid ${p.a}`, zIndex: 1 }} />
+    <div style=${{ position: 'absolute', top: '1110px', right: '90px', left: '90px', textAlign: 'center', zIndex: 1 }}>
+      <p style=${{ margin: 0, font: `800 84px/1.15 '${t.font}', Rubik`, color: p.ink }}><span style=${hl(t, p)}>${hook || USER.business}</span></p>
+    </div>
+    <div style=${{ position: 'absolute', bottom: '300px', right: 0, left: 0, display: 'flex', justifyContent: 'center', zIndex: 1 }}><${Brand} p=${p} noLogo=${noLogo} size=${70} /></div>
+  </div>`;
+}
+
 // A stand-in QR code, the same pattern every time.
 export function FakeQr({ size = 220, fg = '#141414' }) {
   const n = 21;
@@ -250,9 +279,10 @@ export const FLYER_SIZES = [
   { id: 'l', label: 'גדול', k: 1.14 },
 ];
 export const FLYER_POS = [
-  { id: 'top', label: 'למעלה', v: 'center 18%' },
+  // "למעלה" moves the photo up in its frame (shows more of its lower part), "למטה" moves it down.
+  { id: 'top', label: 'למעלה', v: 'center 82%' },
   { id: 'center', label: 'במרכז', v: 'center' },
-  { id: 'bottom', label: 'למטה', v: 'center 82%' },
+  { id: 'bottom', label: 'למטה', v: 'center 18%' },
 ];
 export const FLYER_LOOK = { bg: 'light', font: '', size: 'm', zoom: 100, pos: 'top', show: { points: true, phone: true, logo: true } };
 // The palette after the background choice.

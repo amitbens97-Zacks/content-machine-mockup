@@ -62,6 +62,7 @@ export const postQuote = (t) => (t.type === 'offer' ? t.hooks[0] : t.insight);
 // "עוד הצעות" asks for the next set (round 0, 1, ...).
 export const CHANGES = [
   { id: 'shorter', label: 'קצר יותר' },
+  { id: 'longer', label: 'ארוך יותר' },
   { id: 'hook', label: 'פתיח אחר' },
   { id: 'personal', label: 'יותר אישי' },
   { id: 'ending', label: 'סיום אחר' },
@@ -97,6 +98,14 @@ export function changeOptions(kind, text, t, round = 0) {
       [first(ps[1] || ps[0]), ps[ps.length - 1]].join('\n\n'),
       [ps[0], first(ps[1] || '')].filter(Boolean).join('\n\n'),
     ];
+  } else if (kind === 'longer') {
+    // More of what the post already says: the example, the reason, the points, a personal
+    // line. Added before the ending (the question or the call), never after it.
+    const pts = (t.points || []).slice(0, 3).map((x) => `• ${x}`).join('\n');
+    const extras = [t.example, t.reason, pts && `מה עוזר:\n${pts}`, ...PERSONAL().slice(0, 3), t.who, t.forWho]
+      .filter((x) => x && !text.includes(x.split('\n').pop()));
+    const add = (...xs) => [...ps.slice(0, -1), ...xs, ps[ps.length - 1]].join('\n\n');
+    all = [...extras.map((x) => add(x)), ...extras.slice(0, 3).flatMap((x, i) => extras.slice(i + 1, i + 3).map((y) => add(x, y)))];
   } else if (kind === 'hook') {
     const hooks = [...t.hooks, `${t.title.replace(/[?.]$/, '')}?`, `${t.pain}?`, `שאלה שעולה אצלי הרבה: ${t.title.replace(/[?.]$/, '')}`];
     all = hooks.filter((h) => h !== lines[0]).map((h) => [h, ...lines.slice(1)].join('\n'));

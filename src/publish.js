@@ -2,14 +2,14 @@
 // Instagram has no scheduling of its own, so FlowBiz keeps the queue and publishes at
 // the time; Facebook gets the time with the post (Pages only). Nothing goes out without
 // an explicit "לתזמן" from the user. Facebook groups and LinkedIn are copy-and-remind.
-// Also here: the Meta connection sheet (part 1) and the Grow sheet (the finish).
-import { html, useState, Icon, cx } from './lib.js';
+// Also here: the Meta connection sheet (part 1) and the follower-growth sheet (the finish).
+import { html, useState, Icon, cx, money } from './lib.js';
 import { Button, StepHeading, SharkAvatar } from './components.js';
 import { Sheet, Field, inputCls, Tag } from './ui.js';
 import { USER, META, BRAND, postLink, partLabel, partNo, weekDays, g } from './data.js';
 import { Canvas, Slide, ReelFrame, PostImage } from './art.js';
 import { topicOf, postQuote, reelCaption, carouselCaption } from './content.js';
-import { tplOf, palOf, photoOf, itemState, postImg, captionOf, fmtOf, typeOf, dayOf } from './step.js';
+import { tplOf, palOf, photoOf, itemState, postImg, carouselArt, captionOf, fmtOf, typeOf, dayOf } from './step.js';
 
 // ---------- the Meta connection ----------
 export function MetaSheet({ flags, onClose, onDone }) {
@@ -74,7 +74,7 @@ function PlatformPreview({ cfg, flags, item, target }) {
     ? html`<${Canvas} w=${1080} h=${1920} round=${0}><${ReelFrame} t=${tpl} p=${p} hook=${st.hook === 'none' ? null : t.hooks[st.hook]} caption=${st.caps?.[0]?.text} photo=${photoOf(cfg, flags) || USER.photo} /><//>`
     : item.format === 'post'
       ? html`<${Canvas} round=${0}><${PostImage} t=${tpl} p=${p} photo=${photoOf(cfg, flags) || USER.photo} ...${postImg(st, t)} noLogo=${flags.noLogo} /><//>`
-      : html`<${Canvas} round=${0}><${Slide} s=${st.slides[0]} t=${tpl} p=${p} total=${st.slides.length} noLogo=${flags.noLogo} /><//>`;
+      : html`<${Canvas} round=${0}><${Slide} s=${st.slides[0]} ...${carouselArt(st, cfg, flags)} total=${st.slides.length} noLogo=${flags.noLogo} /><//>`;
   const name = target === 'ig' ? META.ig.handle : META.fb.page;
   return html`<div class="mx-auto w-full max-w-[300px] overflow-hidden rounded-2xl bg-white ring-1 ring-line">
     <div class="flex items-center gap-2 px-3 py-2">
@@ -222,33 +222,89 @@ export function WeekScreen({ cfg, setCfg, flags, notify }) {
   </div>`;
 }
 
-// ---------- Grow: audience growth on Instagram ----------
-// FlowBiz passes what Grow needs straight to Grow's API. The Instagram login is never
-// stored on FlowBiz's side, and it is not logged.
-export function GrowSheet({ flags, notify, onClose }) {
+// ---------- follower growth on Instagram ----------
+// Sold here, right after the finish: the account follows people from the audience the user
+// picked, and unfollows after 10 days, so the followers go up and the following stays low.
+// The word "Grow" never shows to the user. Only after the payment does it ask for the pages
+// and the Instagram login, which go straight to the provider's API: never stored by
+// FlowBiz, never logged.
+export const GROWTH_PRICE = 350;
+const VAT = 0.18;
+const HOW = [
+  ['target', 'בוחרים את הקהל', '3 עד 5 עמודים באינסטגרם שהקהל שלך כבר עוקב אחריהם. לא מתחרים, תחום קרוב.'],
+  ['user-plus', 'עוקבים בשבילך, כל יום', 'החשבון שלך עוקב אוטומטית אחרי אנשים מהקהל הזה. הם מקבלים התראה, נכנסים לפרופיל ורואים את התוכן.'],
+  ['user-minus', 'אחרי 10 ימים, מורידים מעקב', 'מי שעקב בחזרה נשאר. את המעקב מורידים, כך שהעוקבים שלך עולים ומספר הנעקבים נשאר נמוך.'],
+];
+export function GrowthSheet({ cfg, setCfg, notify, onClose }) {
+  const [step, setStep] = useState(cfg.growth === 'paid' ? 'setup' : cfg.growth === 'active' ? 'done' : 'offer');
   const [pages, setPages] = useState(['', '', '']);
   const [pass, setPass] = useState('');
-  const [sent, setSent] = useState(false);
   const filled = pages.filter((x) => x.trim()).length;
-  if (!flags.growSub)
-    return html`<${Sheet} title="צמיחת קהל עם Grow" onClose=${onClose} footer=${html`<${Button} variant="quiet" onClick=${onClose}>לא עכשיו<//><${Button} onClick=${() => (notify('נרשמת. נחזור אליך עם הפרטים', 'check'), onClose())}>${g('אני רוצה לשמוע', 'אני רוצה לשמוע')}<//>`}>
-      <p class="mb-3 text-[15px]">Grow מביא לאינסטגרם שלך עוקבים שמתאימים לקהל שלך: הוא עוקב, באופן מבוקר, אחרי מי שכבר עוקב אחרי עמודים דומים לשלך. התוכן שיצרת כאן הוא מה שגורם להם להישאר.</p>
-      <p class="rounded-xl bg-canvas p-3 text-[14px]">תוספת למנוי FlowBiz. אפשר לבטל בכל חודש.</p>
-    <//>`;
-  if (sent)
-    return html`<${Sheet} title="צמיחת קהל עם Grow" onClose=${onClose} footer=${html`<span></span><${Button} onClick=${onClose}>סגירה<//>`}>
-      <p class="mb-2 flex items-center gap-2 text-[16px] font-bold"><${SharkAvatar} size=${32} mood="happy" />נשלח ל-Grow</p>
-      <p class="text-[15px]">תוך 24 שעות Grow מתחיל לעבוד. את המספרים (עוקבים חדשים בשבוע) נראה בדף הבית. הסיסמה עברה ישר ל-Grow ולא נשמרה אצלנו.</p>
-    <//>`;
-  return html`<${Sheet} title="צמיחת קהל עם Grow" onClose=${onClose} footer=${html`<${Button} variant="quiet" onClick=${onClose}>ביטול<//><${Button} disabled=${filled < 3 || !pass} onClick=${() => (setSent(true), setPass(''))}>שליחה ל-Grow<//>`}>
-    <p class="mb-3 text-[15px]">כלול במנוי שלך. Grow צריך 3 דברים:</p>
-    <p class="mb-1 text-[14px] font-bold">3 עד 5 עמודים דומים באינסטגרם</p>
-    <p class="mb-2 text-[13px] text-muted">עמודים שהקהל שלך כבר עוקב אחריהם. לא מתחרים ישירים, אלא תחום קרוב.</p>
-    <div class="mb-3 flex flex-col gap-1.5">
-      ${pages.map((v, i) => html`<input key=${i} dir="ltr" class=${inputCls} placeholder="@page_name" value=${v} onInput=${(e) => setPages(pages.map((x, j) => (j === i ? e.target.value : x)))} />`)}
-      ${pages.length < 5 && html`<button type="button" class="self-start text-[14px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => setPages([...pages, ''])}>עוד עמוד</button>`}
-    </div>
-    <${Field} label="שם המשתמש באינסטגרם"><input dir="ltr" class=${inputCls} value=${`@${META.ig.handle}`} readonly /><//>
-    <${Field} label="הסיסמה לאינסטגרם" hint="עוברת ישר ל-Grow, לא נשמרת ב-FlowBiz ולא נרשמת בשום לוג."><input type="password" dir="ltr" autocomplete="off" class=${inputCls} value=${pass} onInput=${(e) => setPass(e.target.value)} /><//>
+  const vat = Math.round(GROWTH_PRICE * VAT);
+  const title = { offer: 'עוקבים חדשים, בלי מאמץ', pay: 'אישור התשלום', setup: 'עוד 2 דברים, ומתחילים', done: 'צמיחת העוקבים פעילה' }[step];
+  const footer = {
+    offer: html`<${Button} variant="quiet" onClick=${onClose}>לא עכשיו<//><${Button} class="!h-11 !text-[16px]" onClick=${() => setStep('pay')}><${Icon} name="trending-up" size=${18} />להתחיל לצמוח<//>`,
+    pay: html`<${Button} variant="quiet" onClick=${() => setStep('offer')}>חזרה<//><${Button} class="!h-11 !text-[16px]" onClick=${() => (setCfg({ growth: 'paid' }), setStep('setup'), notify('התשלום עבר', 'check'))}><${Icon} name="lock" size=${17} />לאשר ולשלם ${money(GROWTH_PRICE + vat)}<//>`,
+    setup: html`<${Button} variant="quiet" onClick=${onClose}>אמלא אחר כך<//><${Button} disabled=${filled < 3 || !pass} onClick=${() => (setCfg({ growth: 'active' }), setPass(''), setStep('done'))}>להפעיל<//>`,
+    done: html`<span></span><${Button} onClick=${onClose}>סגירה<//>`,
+  }[step];
+  return html`<${Sheet} wide title=${title} onClose=${onClose} footer=${footer}>
+    ${step === 'offer' && html`<div>
+      <div class="mb-4 flex items-center gap-3 rounded-2xl bg-brand-600 p-4 text-white">
+        <${SharkAvatar} size=${52} mood="happy" />
+        <div class="min-w-0">
+          <b class="block font-display text-[21px] leading-tight">התוכן מוכן. עכשיו צריך שיראו אותו</b>
+          <p class="mt-1 text-[14px] text-white/85">אנשים מהקהל שלך מגיעים לפרופיל כל יום, ו${g('אתה לא עושה', 'את לא עושה')} כלום.</p>
+        </div>
+      </div>
+      <p class="mb-2 text-[15px] font-bold">איך זה עובד</p>
+      <ol class="mb-3 grid gap-2 sm:grid-cols-3">
+        ${HOW.map(([icon, head, text], i) => html`<li key=${head} class="relative rounded-xl bg-white p-3 ring-1 ring-line">
+          <span class="mb-1.5 flex items-center gap-2"><span class="grid h-8 w-8 place-items-center rounded-full bg-brand-100 text-brand-600"><${Icon} name=${icon} size=${17} /></span><span class="font-display text-[14px] font-bold text-muted">${i + 1}</span></span>
+          <b class="block text-[15px] leading-snug">${head}</b>
+          <small class="mt-0.5 block text-[13px] leading-snug text-muted">${text}</small>
+        </li>`)}
+      </ol>
+      <div class="mb-3 rounded-xl bg-white px-3 pb-2.5 pt-3 ring-1 ring-line" aria-label="מה קורה עם כל אחד">
+        <div class="relative mx-2 mb-1 h-2 rounded-full bg-gradient-to-l from-brand-300 via-brand-600 to-money"></div>
+        <div class="grid grid-cols-3 text-[12px] leading-snug">
+          <span><b class="block text-[13px]">יום 1</b>עוקבים אחריו</span>
+          <span class="text-center"><b class="block text-[13px]">ימים 2-9</b>נכנס לפרופיל, עוקב בחזרה</span>
+          <span class="text-end"><b class="block text-[13px]">יום 10</b>מורידים מעקב. הוא נשאר עוקב שלך</span>
+        </div>
+      </div>
+      <ul class="mb-3 grid gap-1.5 text-[14px] sm:grid-cols-3">
+        ${[['clock', '0 דקות ממך ביום'], ['users', 'אנשים מהקהל שלך, לא בוטים'], ['sparkles', 'התוכן שיצרת כאן גורם להם להישאר']].map(([icon, text]) => html`<li key=${text} class="flex items-center gap-1.5"><${Icon} name=${icon} size=${15} class="shrink-0 text-money" />${text}</li>`)}
+      </ul>
+      <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border-[1.5px] border-money/40 bg-money-50 p-3">
+        <span><b class="font-display text-[26px] leading-none">${money(GROWTH_PRICE)}</b> <span class="text-[14px] font-bold">+ מע"מ לחודש</span></span>
+        <span class="flex items-center gap-1.5 text-[14px] font-bold text-money"><${Icon} name="shield-check" size=${16} />בלי התחייבות. מבטלים בכל שלב</span>
+      </div>
+    </div>`}
+    ${step === 'pay' && html`<div>
+      <ul class="mb-3 overflow-hidden rounded-xl bg-white text-[15px] ring-1 ring-line">
+        <li class="flex justify-between border-b border-line px-3 py-2"><span>צמיחת עוקבים אוטומטית · חודשי</span><b>${money(GROWTH_PRICE)}</b></li>
+        <li class="flex justify-between border-b border-line px-3 py-2 text-muted"><span>מע"מ 18%</span><span>${money(vat)}</span></li>
+        <li class="flex justify-between px-3 py-2"><b>לתשלום בכל חודש</b><b>${money(GROWTH_PRICE + vat)}</b></li>
+      </ul>
+      <p class="mb-1 flex items-start gap-2 text-[14px]"><${Icon} name="credit-card" size=${17} class="mt-0.5 shrink-0 text-brand-600" />החיוב בכרטיס של המנוי שלך ב-FlowBiz, כל חודש באותו תאריך.</p>
+      <p class="flex items-start gap-2 text-[14px]"><${Icon} name="shield-check" size=${17} class="mt-0.5 shrink-0 text-money" />בלי התחייבות. ביטול בכל שלב מההגדרות, והחודש ששולם ממשיך לעבוד עד סופו.</p>
+    </div>`}
+    ${step === 'setup' && html`<div>
+      <p class="mb-3 flex items-center gap-2 rounded-xl bg-money-50 p-2.5 text-[14px] font-bold text-money"><${Icon} name="check" size=${16} />התשלום עבר. עכשיו מה שצריך כדי להתחיל:</p>
+      <p class="mb-1 text-[14px] font-bold">1. 3 עד 5 עמודים דומים באינסטגרם</p>
+      <p class="mb-2 text-[13px] text-muted">עמודים שהקהל שלך כבר עוקב אחריהם. לא מתחרים ישירים, אלא תחום קרוב. למשל: עמוד על הורות, על מיינדפולנס, על בריאות נפשית.</p>
+      <div class="mb-3 flex flex-col gap-1.5">
+        ${pages.map((v, i) => html`<input key=${i} dir="ltr" class=${inputCls} placeholder="@page_name" value=${v} onInput=${(e) => { const v = e.target.value; setPages((ps) => ps.map((x, j) => (j === i ? v : x))); }} aria-label=${`עמוד ${i + 1}`} />`)}
+        ${pages.length < 5 && html`<button type="button" class="self-start text-[14px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => setPages([...pages, ''])}>עוד עמוד</button>`}
+      </div>
+      <p class="mb-1 text-[14px] font-bold">2. החשבון שלך באינסטגרם</p>
+      <${Field} label="שם המשתמש"><input dir="ltr" class=${inputCls} value=${`@${META.ig.handle}`} readonly /><//>
+      <${Field} label="הסיסמה" hint="עוברת ישר לשירות שמפעיל את המעקב. לא נשמרת ב-FlowBiz ולא נרשמת בשום לוג."><input type="password" dir="ltr" autocomplete="off" class=${inputCls} value=${pass} onInput=${(e) => setPass(e.target.value)} /><//>
+    </div>`}
+    ${step === 'done' && html`<div>
+      <p class="mb-2 flex items-center gap-2 text-[17px] font-bold"><${SharkAvatar} size=${36} mood="happy" />מתחילים תוך 24 שעות</p>
+      <p class="text-[15px]">מהיום החשבון שלך עוקב כל יום אחרי אנשים מהקהל שבחרת, ומוריד מעקב אחרי 10 ימים. את העוקבים החדשים של כל שבוע רואים בדף הבית. הסיסמה עברה ישר לשירות, ולא נשמרה אצלנו.</p>
+    </div>`}
   <//>`;
 }

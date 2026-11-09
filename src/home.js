@@ -1,6 +1,6 @@
 // The home page, only what this task changes on it: the next-step card, the content of
 // the week with each item's state, and, once a week is done, the next week, ready to make.
-import { html, Icon } from './lib.js';
+import { html, Icon, cx } from './lib.js';
 import { Button } from './components.js';
 import { USER, STEP, LAST_WEEK_STATS, MAX_WEEKS, weekRange, g } from './data.js';
 import { topicOf } from './content.js';
@@ -64,10 +64,10 @@ export function Home({ state, setCfg, go, onGrow, onNextWeek }) {
           </ul>
         </div>`}
       </section>
-      <section class="fb-panel !p-4">
-        <h2 class="fb-h3 mb-1">Grow</h2>
-        <p class="mb-2 text-[14px]">${state.flags.growSub ? 'צמיחת קהל באינסטגרם, כלולה במנוי שלך.' : 'צמיחת קהל באינסטגרם, תוספת למנוי.'}</p>
-        <${Button} variant="text" class="!h-auto !p-0" onClick=${onGrow}>${state.flags.growSub ? 'להפעיל' : 'לפרטים'}<//>
+      <section class=${cx('fb-panel !p-4', cfg.growth !== 'active' && 'border-[1.5px] border-money/40')}>
+        <h2 class="fb-h3 mb-1 flex items-center gap-2"><${Icon} name="trending-up" size=${19} class="text-money" />${cfg.growth === 'active' ? 'צמיחת העוקבים' : 'עוקבים חדשים, בלי מאמץ'}</h2>
+        <p class="mb-2 text-[14px]">${cfg.growth === 'active' ? 'פעילה. כל יום עוקבים אחרי אנשים מהקהל שבחרת, ואחרי 10 ימים מורידים מעקב.' : cfg.growth === 'paid' ? 'התשלום עבר. חסרים העמודים הדומים והחשבון באינסטגרם.' : 'עוקבים אוטומטית אחרי הקהל שלך, כדי שיגיעו לתוכן. 350 ₪ + מע"מ לחודש, בלי התחייבות.'}</p>
+        ${cfg.growth !== 'active' && html`<${Button} variant="text" class="!h-auto !p-0" onClick=${onGrow}>${cfg.growth === 'paid' ? 'להשלים' : 'איך זה עובד'}<//>`}
       </section>
     </div>
   </div>`;

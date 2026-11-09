@@ -5,7 +5,7 @@
 import { html, useState, useEffect, useRef, Icon, PencilCheck, cx } from './lib.js';
 import { Button } from './components.js';
 import { Sheet, Tag } from './ui.js';
-import { Canvas, ReelFrame, CAP_STYLES } from './art.js';
+import { Canvas, ReelFrame, ReelCover, CAP_STYLES } from './art.js';
 import { LIMITS, TRANSCRIPT, REEL_STAGES, captionLines, fmtSec } from './content.js';
 
 // Uploaded files live only in this tab (an object URL per item). After a reload the
@@ -23,7 +23,10 @@ export function VideoMedia({ src, playing }) {
   }, [playing]);
   return html`<video ref=${ref} src=${src} muted loop playsinline style=${{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#000' }} />`;
 }
-export const REEL_DEFAULT = { trim: null, hook: true, caps: true, logo: true, capStyle: 'box', silence: true, noise: true };
+export const REEL_DEFAULT = { trim: null, hook: true, caps: true, logo: true, capStyle: 'box', silence: true, noise: true, cover: 'design', coverAt: 1, edited: false };
+// A video the user already edited (cuts, captions): only the name check runs, and nothing is added on top by default.
+const EDITED = { hook: false, caps: false, silence: false, noise: false, edited: true };
+export const COVERS = [{ id: 'design', label: 'כריכה מעוצבת' }, { id: 'frame', label: 'פריים מהסרטון' }];
 export const reelOf = (st) => ({ ...REEL_DEFAULT, ...(st.reel || {}) });
 const RAW = 41; // the sample video, before the silences are cut
 
@@ -41,6 +44,8 @@ export function ReelSheet({ item, st, setIt, tpl, p, photo, hook, startAt = 'pic
   const [caps, setCaps] = useState(st.caps || []);
   const [reel, setReel] = useState(reelOf(st));
   const [drag, setDrag] = useState(false);
+  const [edited, setEdited] = useState(reelOf(st).edited);
+  const stages = edited ? REEL_STAGES.slice(0, 3) : REEL_STAGES;
   const fileRef = useRef(null);
   const timer = useRef();
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -61,14 +66,14 @@ export function ReelSheet({ item, st, setIt, tpl, p, photo, hook, startAt = 'pic
   const start = () => {
     setNames(null);
     setStage(0);
-    setReel({ ...REEL_DEFAULT });
+    setReel({ ...REEL_DEFAULT, ...(edited ? EDITED : {}) });
     setStep('process');
   };
   // The processing, stage by stage. At the name check it stops until the user answers.
   useEffect(() => {
     if (step !== 'process') return;
     if (stage === 2 && !names) return;
-    if (stage >= REEL_STAGES.length) {
+    if (stage >= stages.length) {
       setCaps(captionLines(TRANSCRIPT.filter((x, i) => !(names === 'cut' && i === 2)).map((x) => (names === 'name' ? x.replace('לנועה ', '') : x))));
       setStep('edit');
       return;
@@ -97,13 +102,19 @@ export function ReelSheet({ item, st, setIt, tpl, p, photo, hook, startAt = 'pic
         <small class="text-[13px] text-muted">או לגרור לכאן · עד 3 דקות · אנכי (9:16) הכי טוב · MP4 או MOV</small>
         <input ref=${fileRef} type="file" accept="video/*" class="sr-only" onChange=${(e) => pickFile(e.target.files[0])} />
       </label>
+      <div class="mt-3 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="איזה סרטון">
+        ${[[false, 'scissors', 'סרטון כמו שצולם', 'הכי פשוט. כאן מקצרים שתיקות, מנקים רעשים, ומוסיפים כתוביות, הוק ולוגו'], [true, 'clapperboard', 'סרטון שכבר ערכתי', 'עם חיתוכים או כתוביות משלך. רק בודקים שמות, ושום דבר לא נוסף עליו']].map(([v, icon, label, sub]) => html`<button key=${label} type="button" role="radio" aria-checked=${edited === v} onClick=${() => setEdited(v)} class=${cx('flex items-start gap-2.5 rounded-xl border-[1.5px] bg-white p-2.5 text-start cursor-pointer', edited === v ? 'border-brand-600 bg-brand-50' : 'border-line hover:border-brand-300')}>
+          <span class="mt-0.5 text-brand-600"><${Icon} name=${icon} size=${18} /></span>
+          <span class="min-w-0"><b class="block text-[14px]">${label}</b><small class="block text-[12px] leading-snug text-muted">${sub}</small></span>
+        </button>`)}
+      </div>
       <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-[13px] text-muted">
         <span class="flex items-center gap-1.5"><${Icon} name="shield-check" size=${15} />הסרטון נשמר רק אצלך, ולא יוצא לפני שתאשר</span>
         <button type="button" class="font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${sample}>להמשיך עם סרטון לדוגמה</button>
       </div>
     </div>`}
     ${step === 'process' && html`<div class="fb-stages rounded-xl bg-white p-3 ring-1 ring-line">
-      ${REEL_STAGES.map((r, i) => html`<div key=${r.id} class=${cx('fb-stage', i < stage && 'is-done', i === stage && 'is-now', i > stage && 'is-next')}>
+      ${stages.map((r, i) => html`<div key=${r.id} class=${cx('fb-stage', i < stage && 'is-done', i === stage && 'is-now', i > stage && 'is-next')}>
         <span class="fb-dot">${i < stage && html`<${PencilCheck} size=${16} color="#2d3e66" />`}</span>
         <span class="min-w-0"><span class="block">${r.label}</span><small class="block text-[12px] font-normal text-muted">${r.sub}</small></span>
       </div>`)}
@@ -194,6 +205,24 @@ function ReelEdit({ src, caps, setCaps, reel, setReel, names, tpl, p, photo, hoo
           <${Toggle2} on=${reel.caps} onClick=${() => setReel({ caps: !reel.caps })}>כתוביות<//>
           <${Toggle2} on=${reel.logo} onClick=${() => setReel({ logo: !reel.logo })}>לוגו ושם<//>
           ${reel.caps && html`<span class="ms-1 flex items-center gap-1.5 text-[13px] text-muted">כתוביות:<${Seg} options=${CAP_STYLES} value=${reel.capStyle} onChange=${(v) => setReel({ capStyle: v })} /></span>`}
+        </div>
+      <//>
+      <${Box} title="הכריכה" aside=${html`<span class="text-[12px] font-normal text-muted">בפרופיל ובלשונית הרילס</span>`}>
+        <div class="flex items-start gap-3">
+          <span class="block w-[72px] shrink-0">
+            <${Canvas} w=${1080} h=${1920} round=${6}>${reel.cover === 'design'
+              ? html`<${ReelCover} t=${tpl} p=${p} photo=${photo} hook=${hook} />`
+              : html`<${ReelFrame} t=${tpl} p=${p} hook=${reel.hook ? hook : null} photo=${photo} playing brand=${reel.logo} />`}<//>
+          </span>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <${Seg} options=${COVERS} value=${reel.cover} onChange=${(v) => setReel({ cover: v })} />
+              ${reel.cover === 'frame' && html`<button type="button" class="text-[13px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => setReel({ coverAt: rel })}>הפריים הנוכחי (${fmtSec(rel)})</button>`}
+            </div>
+            <p class="mt-1 text-[12px] leading-snug text-muted">${reel.cover === 'design'
+              ? 'התמונה שלך וההוק, בתבנית. הכריכה לא חייבת להיות מתוך הסרטון.'
+              : `פריים מ-${fmtSec(reel.coverAt)}. עוצרים את הסרטון איפה שרוצים, ולוחצים "הפריים הנוכחי".`}</p>
+          </div>
         </div>
       <//>
       <${Box} title="ניקוי הסאונד">

@@ -7,7 +7,7 @@ import { html, useState, useEffect, useRef, Icon, PencilCheck, PencilLine, cx, c
 import { Button, Note, StepHeading, SharkAvatar, SubStep } from './components.js';
 import { Chips, inputCls, Tag } from './ui.js';
 import { USER, BRAND, META, PAGE_LINK, PLATFORMS, STYLES, TEMPLATES, RECOMMENDED_TEMPLATE, TYPES, FORMATS, TOPICS, TOPIC_CHOICES, TOPIC_WHY, LAST_WEEK_STATS, OFFER, PARTS, PART_HINT, MAX_WEEKS, partLabel, partNo, weekDays, weekRange, MESSAGE_LINES, BIOS, WORDS, DESIGN, g } from './data.js';
-import { Canvas, Slide, ReelFrame, Flyer, PostImage, POST_LAYOUTS, POST_LOOK, LAYOUTS, FLYER_FONTS, FLYER_BG, FLYER_SIZES, FLYER_POS, FLYER_LOOK, palette } from './art.js';
+import { Canvas, Slide, SLIDE_LOOK, SLIDE_ALIGN, ReelFrame, ReelCover, Flyer, PostImage, POST_LAYOUTS, POST_LOOK, LAYOUTS, FLYER_FONTS, FLYER_BG, FLYER_SIZES, FLYER_POS, FLYER_LOOK, palette } from './art.js';
 import { words, LIMITS, topicOf, checkText, postVersions, postQuote, CHANGES, changeOptions, carouselSlides, slideFields, reelScript, fmtSec } from './content.js';
 import { MetaSheet } from './publish.js';
 import { ReelSheet, reelOf, reelFile, VideoMedia } from './reel.js';
@@ -40,6 +40,14 @@ export const dayOf = (id) => weekDays().find((d) => d.id === id);
 // The state of one item of the week, with its defaults.
 // The post image of an item: its look, the quote and the signature (both edited on the image).
 export const postImg = (st, tp) => ({ look: { ...POST_LOOK, ...(st.img?.look || {}), show: { ...POST_LOOK.show, ...(st.img?.look?.show || {}) } }, quote: st.img?.quote || postQuote(tp), sign: st.img?.sign || '' });
+// The carousel's own design: its template (the week's by default), accent, background,
+// text size, font, alignment and what shows. The same for all its slides.
+export const slideLook = (st) => ({ ...SLIDE_LOOK, ...(st.look || {}), show: { ...SLIDE_LOOK.show, ...(st.look?.show || {}) } });
+export function carouselArt(st, cfg, flags) {
+  const look = slideLook(st);
+  const t = TEMPLATES.find((x) => x.id === look.tpl) || tplOf(cfg);
+  return { t, p: palette(t, cfg.colors, flags.noLogo, look.swatch), look };
+}
 export function itemState(cfg, item) {
   const t = topicOf(item);
   const s = cfg.items[item.id] || {};
@@ -54,6 +62,7 @@ export function itemState(cfg, item) {
     names: s.names || null,
     img: s.img || null,
     reel: s.reel || null,
+    look: s.look || null,
   };
 }
 // The text that goes out with an item.
@@ -269,7 +278,7 @@ export function TopicsScreen({ cfg, setCfg, flags, onSettings }) {
                 const on = t.type === ty.id;
                 return html`<button key=${ty.id} type="button" role="radio" aria-checked=${on} disabled=${off}
                   title=${off ? (flags.noOffer ? 'אין עדיין הצעה. היא נבנית בשלב 8' : 'בשבוע של 3 פריטים יש הצעה אחת לכל היותר') : ty.sub}
-                  onClick=${() => !on && setItem(item.id, { topic: TOPIC_CHOICES[ty.id].find((x) => !used.has(x)) || TOPIC_CHOICES[ty.id][0], ...(ty.id === 'offer' ? { time: '19:30' } : {}) })}
+                  onClick=${() => { if (on) return; const nt = TOPIC_CHOICES[ty.id].find((x) => !used.has(x)) || TOPIC_CHOICES[ty.id][0]; setItem(item.id, { topic: nt, seen: [nt], ...(ty.id === 'offer' ? { time: '19:30' } : {}) }); }}
                   class=${cx('inline-flex h-7 items-center gap-1 rounded-lg border-[1.5px] px-1.5 text-[12px] font-bold', on ? 'border-brand-600 bg-brand-100 text-brand-600' : off ? 'border-line bg-canvas text-faint cursor-not-allowed' : 'border-line bg-white hover:border-brand-300 cursor-pointer')}
                 ><${Icon} name=${ty.icon} size=${13} />${ty.label}</button>`;
               })}
@@ -281,24 +290,36 @@ export function TopicsScreen({ cfg, setCfg, flags, onSettings }) {
               ? html`<small class="mt-1 flex items-start gap-1 text-[12px] font-bold text-brand-600"><${Icon} name=${why.icon} size=${13} class="mt-0.5 shrink-0" />${why.text}</small>`
               : html`<small class="mt-1 block text-[12px] text-muted">מהכאב: "${t.pain}"</small>`}
           </div>
-          <div class="flex items-center justify-between gap-2">
-            ${choices.length > 1 ? html`<button type="button" class="text-[13px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => {
-              const rest = choices.filter((x) => x !== item.topic && !plan.some((i) => i.topic === x));
-              const fresh = rest.filter((x) => !used.has(x));
-              setItem(item.id, { topic: (fresh[0] || rest[0] || item.topic) });
-            }}><${Icon} name="refresh-cw" size=${12} class="me-1 inline" />רעיון אחר</button>` : html`<span></span>`}
-            ${used.has(item.topic) && html`<${Tag} tone="draft">כבר פורסם<//>`}
-          </div>
+          ${(() => {
+            // Every idea shown stays in a row: "רעיון אחר" moves forward (a new idea at the
+            // end), the arrow goes back to the ideas before.
+            const seen = item.seen?.includes(item.topic) ? item.seen : [item.topic];
+            const at = seen.indexOf(item.topic);
+            const rest = choices.filter((x) => !seen.includes(x) && !plan.some((i) => i.topic === x));
+            const fresh = rest.filter((x) => !used.has(x))[0] || rest[0];
+            const canNext = at < seen.length - 1 || !!fresh;
+            const go = (topic, list = seen) => setItem(item.id, { topic, seen: list });
+            const arrow = 'grid h-7 w-7 place-items-center rounded-lg border-[1.5px] border-line bg-white text-brand-600 hover:border-brand-300 cursor-pointer disabled:cursor-not-allowed disabled:text-faint disabled:hover:border-line';
+            return html`<div class="flex items-center justify-between gap-2">
+              <span class="flex items-center gap-1.5">
+                ${seen.length > 1 && html`<button type="button" class=${arrow} disabled=${at === 0} onClick=${() => go(seen[at - 1])} aria-label="לרעיון הקודם" title="לרעיון הקודם"><${Icon} name="chevron-right" size=${16} /></button>
+                  <span class="text-[12px] font-bold tabular-nums text-muted">${at + 1}/${seen.length}</span>`}
+                ${choices.length > 1 && html`<button type="button" disabled=${!canNext} class="text-[13px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer disabled:cursor-not-allowed disabled:text-faint" onClick=${() => (at < seen.length - 1 ? go(seen[at + 1]) : go(fresh, [...seen, fresh]))}><${Icon} name="refresh-cw" size=${12} class="me-1 inline" />${at < seen.length - 1 ? 'לרעיון הבא' : 'רעיון אחר'}</button>`}
+              </span>
+              ${used.has(item.topic) && html`<${Tag} tone="draft">כבר פורסם<//>`}
+            </div>`;
+          })()}
           <div class="flex gap-1.5">
             ${FORMATS.map((f) => html`<button key=${f.id} type="button" aria-pressed=${item.format === f.id} onClick=${() => setItem(item.id, { format: f.id })} class=${cx('inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-lg border-[1.5px] text-[13px] font-bold cursor-pointer', item.format === f.id ? 'border-brand-600 bg-brand-100 text-brand-600' : 'border-line bg-white hover:border-brand-300')}><${Icon} name=${f.icon} size=${14} />${f.label}</button>`)}
           </div>
         </section>`;
       })}
     </div>
-    <p class="mt-3 flex flex-wrap items-start gap-x-2 gap-y-1 text-[13px] text-muted"><${Icon} name="info" size=${15} class="mt-0.5 shrink-0" />
-      ${flags.noOffer ? 'עוד אין הצעה (שלב 8), אז השבוע כולו ערך.' : 'בשבוע של 3 פריטים יש הצעה אחת לכל היותר. מתי כל פריט יוצא קובעים בסוף, בתוכנית לשבוע.'}
-      ${week > 1 && html`<button type="button" class="font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${onSettings}>לשנות ערוצים, עיצוב או פלייר</button>`}
-    </p>
+    <div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <p class="flex min-w-0 items-start gap-2 text-[13px] text-muted"><${Icon} name="info" size=${15} class="mt-0.5 shrink-0" />
+        ${flags.noOffer ? 'עוד אין הצעה (שלב 8), אז השבוע כולו ערך.' : 'בשבוע של 3 פריטים יש הצעה אחת לכל היותר. מתי כל פריט יוצא קובעים בסוף, בתוכנית לשבוע.'}</p>
+      ${week > 1 && html`<button type="button" class="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border-[1.5px] border-brand-300 bg-white px-3.5 text-[16px] font-bold text-brand-600 hover:border-brand-600 hover:bg-brand-50 cursor-pointer" onClick=${onSettings}><${Icon} name="settings-2" size=${18} />לשנות ערוצים, עיצוב או פלייר</button>`}
+    </div>
   </div>`;
 }
 
@@ -353,7 +374,7 @@ function Suggestions({ req, text, tp, onPick, onClose }) {
     ${list.length
       ? html`<div class="grid gap-2 md:grid-cols-3">
           ${list.map((opt, i) => html`<button key=${round + '-' + i} type="button" onClick=${() => onPick(opt)} class="group flex flex-col gap-1.5 rounded-lg bg-white p-2.5 text-start ring-1 ring-line hover:ring-2 hover:ring-brand-600 cursor-pointer">
-            <small class="text-[12px] font-bold text-muted">הצעה ${round * 3 + i + 1}${whole ? ` · ${words(opt)} מילים` : ''}</small>
+            <small class="text-[12px] font-bold text-muted">הצעה ${round * 3 + i + 1}${whole || req.id === 'longer' ? ` · ${words(opt)} מילים (עכשיו ${words(text)})` : ''}</small>
             <span class=${cx('whitespace-pre-line text-[14px] leading-snug', whole && 'line-clamp-5')}>${whole ? opt : changedPart(text, opt)}</span>
             <span class="mt-auto inline-flex items-center gap-1 text-[13px] font-bold text-brand-600 opacity-70 group-hover:opacity-100"><${Icon} name="check" size=${14} />לבחור בזו</span>
           </button>`)}
@@ -361,6 +382,10 @@ function Suggestions({ req, text, tp, onPick, onClose }) {
       : html`<p class="text-[14px] text-muted">אין עוד הצעות מהסוג הזה לטקסט הנוכחי.</p>`}
   </div>`;
 }
+
+const Tabs = ({ value, onChange, items, class: cls = 'mb-2' }) => html`<div class=${cx(cls, 'inline-flex rounded-xl bg-canvas p-0.5 ring-1 ring-line')} role="tablist">
+  ${items.map(([id, label, icon]) => html`<button key=${id} type="button" role="tab" aria-selected=${value === id} onClick=${() => onChange(id)} class=${cx('inline-flex h-8 items-center gap-1.5 rounded-lg px-4 text-[14px] font-bold cursor-pointer', value === id ? 'bg-white text-brand-600 shadow-sm ring-1 ring-line' : 'text-muted hover:text-ink')}><${Icon} name=${icon} size=${15} />${label}</button>`)}
+</div>`;
 
 function PostEditor({ item, st, setIt, p, tpl, flags, cfg }) {
   const tp = topicOf(item);
@@ -372,9 +397,7 @@ function PostEditor({ item, st, setIt, p, tpl, flags, cfg }) {
   const photo = photoOf(cfg, flags) || USER.photo;
   const img = postImg(st, tp);
   const setImg = (patch) => setIt({ img: { ...img, ...patch } });
-  const tabs = html`<div class="mb-2 inline-flex rounded-xl bg-canvas p-0.5 ring-1 ring-line" role="tablist">
-    ${[['text', 'הטקסט', 'align-right'], ['image', 'התמונה', 'image']].map(([id, label, icon]) => html`<button key=${id} type="button" role="tab" aria-selected=${tab === id} onClick=${() => setTab(id)} class=${cx('inline-flex h-8 items-center gap-1.5 rounded-lg px-4 text-[14px] font-bold cursor-pointer', tab === id ? 'bg-white text-brand-600 shadow-sm ring-1 ring-line' : 'text-muted hover:text-ink')}><${Icon} name=${icon} size=${15} />${label}</button>`)}
-  </div>`;
+  const tabs = html`<${Tabs} value=${tab} onChange=${setTab} items=${[['text', 'הטקסט', 'align-right'], ['image', 'התמונה', 'image']]} />`;
   if (tab === 'image') return html`${tabs}<${PostImageEditor} img=${img} setImg=${setImg} tp=${tp} p=${p} tpl=${tpl} photo=${photo} flags=${flags} />`;
   const onImage = () => setTab('image');
   return html`${tabs}<div class="grid items-start gap-5 md:grid-cols-[1fr_250px]">
@@ -514,38 +537,97 @@ function PostImageEditor({ img, setImg, tp, p, tpl, photo, flags }) {
   </div>`;
 }
 
-function CarouselEditor({ item, st, setIt, p, tpl, flags }) {
+function CarouselEditor({ item, st, setIt, flags, cfg }) {
   const [sel, setSel] = useState(0);
+  const [tab, setTab] = useState('text');
   const slides = st.slides;
   const s = slides[sel];
+  const { t: tpl, p, look } = carouselArt(st, cfg, flags);
+  const setLook = (patch) => setIt({ look: { ...look, ...patch } });
+  const show = (k) => setLook({ show: { ...look.show, [k]: !look.show[k] } });
   const setField = (k, v) => setIt({ slides: slides.map((x, i) => (i === sel ? { ...x, [k]: v } : x)) });
+  // A text edited on the slide itself; "points.1" is the second point of the summary.
+  const edit = (k, v) => (k.startsWith('points.')
+    ? setIt({ slides: slides.map((x, i) => (i === sel ? { ...x, points: x.points.map((pt, n) => (n === +k.split('.')[1] ? v : pt)) } : x)) })
+    : setField(k, v));
   const shorten = (k, limit) => setField(k, s[k].split(/\s+/).slice(0, limit).join(' ').replace(/[,،]$/, ''));
   const over = slides.some((x) => slideFields(x).some(([k, , lim]) => words(x[k]) > lim) || (x.points || []).some((pt) => words(pt) > LIMITS.sumPoint));
-  return html`<div class="grid items-start gap-5 md:grid-cols-[1fr_260px]">
+  const changed = !!st.look;
+  const swatches = [0, ...BRAND.swatches.map((_, i) => i).slice(1)];
+  const art = (x, i, e) => html`<${Slide} s=${x} t=${tpl} p=${p} i=${i} total=${slides.length} noLogo=${flags.noLogo} look=${look} edit=${e} />`;
+  const tabs = html`<${Tabs} class="" value=${tab} onChange=${setTab} items=${[['text', 'הטקסט', 'align-right'], ['design', 'העיצוב', 'palette']]} />`;
+  return html`<div class="grid items-start gap-5 md:grid-cols-[1fr_224px]">
     <div class="min-w-0">
-      <${SubStep} n="1" aside=${over ? html`<${Tag} tone="fix">יש שדה מעל המגבלה<//>` : html`<${Tag} tone="live">כל השדות בתוך המגבלה<//>`}>בוחרים שקופית<//>
-      <div class="thin-scroll -mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-2">
-        ${slides.map((x, i) => html`<button key=${i} type="button" onClick=${() => setSel(i)} aria-pressed=${sel === i} class=${cx('w-[92px] shrink-0 rounded-lg p-0.5 cursor-pointer', sel === i ? 'ring-[3px] ring-brand-600' : 'ring-1 ring-line hover:ring-brand-300')}>
-          <${Canvas} round=${5}><${Slide} s=${x} t=${tpl} p=${p} i=${i} total=${slides.length} noLogo=${flags.noLogo} /><//>
+      <${SubStep} n="1" class="!mb-1.5" aside=${tabs}>${tab === 'text' ? 'בוחרים שקופית' : html`השקופיות <small class="text-[12px] font-normal text-muted">· העיצוב חל על כולן</small>`}<//>
+      <div class="thin-scroll -mx-1 mb-2 flex gap-2 overflow-x-auto px-1 pb-2">
+        ${slides.map((x, i) => html`<button key=${i} type="button" onClick=${() => setSel(i)} aria-pressed=${sel === i} class=${cx('w-[62px] shrink-0 rounded-lg p-0.5 cursor-pointer', sel === i ? 'ring-[3px] ring-brand-600' : 'ring-1 ring-line hover:ring-brand-300')}>
+          <${Canvas} round=${5}>${art(x, i)}<//>
         </button>`)}
       </div>
-      <${SubStep} n="2">שקופית ${sel + 1}: ${{ cover: 'שער', content: 'רעיון אחד', summary: 'סיכום', cta: 'הנעה לפעולה' }[s.kind]}<//>
-      <div class="grid gap-x-3 sm:grid-cols-2">
-        ${slideFields(s).map(([k, label, lim]) => {
-          const n = words(s[k]);
-          return html`<div key=${k} class=${cx('mb-2', k === 'body' && 'sm:col-span-2')}>
-            <div class="mb-1 flex items-center justify-between"><span class="text-[13px] font-bold">${label}</span><${Counter} text=${s[k]} limit=${lim} /></div>
-            <textarea rows=${k === 'body' ? 3 : 2} class=${cx(inputCls, '!h-auto py-1.5 leading-snug', n > lim && '!border-error')} value=${s[k]} onInput=${(e) => setField(k, e.target.value)}></textarea>
-            ${n > lim && html`<p class="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-error">מעל ${lim} מילים.<button type="button" class="font-bold underline underline-offset-2 cursor-pointer" onClick=${() => shorten(k, lim)}>${WORDS} יקצר</button></p>`}
-            <${Checks} text=${s[k]} />
-          </div>`;
-        })}
-      </div>
-      ${s.kind === 'summary' && html`<ul class="flex flex-col gap-1 text-[14px]">${s.points.map((pt) => html`<li class="flex items-center justify-between gap-2 rounded-lg bg-canvas px-2 py-1"><span>${pt}</span><${Counter} text=${pt} limit=${LIMITS.sumPoint} /></li>`)}</ul>`}
+      ${tab === 'text'
+        ? html`<${SubStep} n="2" class="!mb-1.5" aside=${over ? html`<${Tag} tone="fix">יש שדה מעל המגבלה<//>` : html`<${Tag} tone="live">כל השדות בתוך המגבלה<//>`}>שקופית ${sel + 1}: ${{ cover: 'שער', content: 'רעיון אחד', summary: 'סיכום', cta: 'הנעה לפעולה' }[s.kind]}<//>
+          <div class="grid gap-x-3 sm:grid-cols-2">
+            ${slideFields(s).map(([k, label, lim]) => {
+              const n = words(s[k]);
+              return html`<div key=${k} class=${cx('mb-2', k === 'body' && 'sm:col-span-2')}>
+                <div class="mb-1 flex items-center justify-between"><span class="text-[13px] font-bold">${label}</span><${Counter} text=${s[k]} limit=${lim} /></div>
+                <textarea rows=${k === 'body' ? 3 : 2} class=${cx(inputCls, '!h-auto py-1.5 leading-snug', n > lim && '!border-error')} value=${s[k]} onInput=${(e) => setField(k, e.target.value)}></textarea>
+                ${n > lim && html`<p class="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-error">מעל ${lim} מילים.<button type="button" class="font-bold underline underline-offset-2 cursor-pointer" onClick=${() => shorten(k, lim)}>${WORDS} יקצר</button></p>`}
+                <${Checks} text=${s[k]} />
+              </div>`;
+            })}
+          </div>
+          ${s.kind === 'summary' && html`<ul class="flex flex-col gap-1 text-[14px]">${s.points.map((pt) => html`<li class="flex items-center justify-between gap-2 rounded-lg bg-canvas px-2 py-1"><span>${pt}</span><${Counter} text=${pt} limit=${LIMITS.sumPoint} /></li>`)}</ul>`}`
+        : html`<div>
+          <${Row} label="תבנית">
+            <div class="flex flex-wrap items-center gap-2">
+              <select class=${cx(inputCls, '!h-9 !w-auto min-w-[190px] !py-0 !text-[14px]')} value=${tpl.id} onChange=${(e) => setLook({ tpl: e.target.value === tplOf(cfg).id ? '' : e.target.value })} aria-label="תבנית לקרוסלה">
+                ${STYLES.map((g2) => html`<optgroup key=${g2.id} label=${g2.label}>${TEMPLATES.filter((x) => x.style === g2.id).map((x) => html`<option key=${x.id} value=${x.id}>${x.name} · ${x.mood}${x.id === tplOf(cfg).id ? ' (של השבוע)' : ''}</option>`)}</optgroup>`)}
+              </select>
+            </div>
+          <//>
+          <${Row} label="צבעים">
+            <div class="flex flex-wrap items-center gap-2">
+              <${Mini} options=${FLYER_BG} value=${look.bg} onChange=${(v) => setLook({ bg: v })} />
+              <span class="h-5 w-px bg-line" aria-hidden="true"></span>
+              <span class="flex items-center gap-1.5" role="radiogroup" aria-label="צבע הדגשה">
+                ${swatches.map((i) => {
+                  const c = palette(tpl, cfg.colors, flags.noLogo, i).a;
+                  return html`<button key=${i} type="button" role="radio" aria-checked=${look.swatch === i} title=${i === 0 ? 'הצבע של התבנית' : 'צבע מהלוגו'} onClick=${() => setLook({ swatch: i })} class=${cx('h-7 w-7 rounded-full cursor-pointer ring-offset-2', look.swatch === i ? 'ring-[2.5px] ring-brand-600' : 'ring-1 ring-line hover:ring-brand-300')} style=${{ background: c }}></button>`;
+                })}
+              </span>
+            </div>
+          <//>
+          <${Row} label="טקסט">
+            <div class="flex flex-wrap items-center gap-2">
+              <${Mini} options=${FLYER_SIZES} value=${look.size} onChange=${(v) => setLook({ size: v })} />
+              <span class="h-5 w-px bg-line" aria-hidden="true"></span>
+              <${Mini} options=${SLIDE_ALIGN} value=${look.align} onChange=${(v) => setLook({ align: v })} />
+              <span class="h-5 w-px bg-line" aria-hidden="true"></span>
+              <select class=${cx(inputCls, '!h-8 !w-auto !py-0 !text-[13px] font-bold')} value=${look.font} onChange=${(e) => setLook({ font: e.target.value })} aria-label="גופן">
+                ${FLYER_FONTS.map((f) => html`<option key=${f.id} value=${f.id}>גופן: ${f.label}</option>`)}
+              </select>
+            </div>
+          <//>
+          <${Row} label="מה מופיע">
+            <div class="flex flex-wrap gap-1.5">
+              <${OnChip} on=${look.show.logo} onClick=${() => show('logo')}>לוגו ושם<//>
+              <${OnChip} on=${look.show.num} onClick=${() => show('num')}>מספרים<//>
+              <${OnChip} on=${look.show.swipe} onClick=${() => show('swipe')}>"החליקו לצד"<//>
+            </div>
+          <//>
+          ${changed && html`<button type="button" class="mt-1 text-[13px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => setIt({ look: null })}>לחזור לעיצוב של השבוע</button>`}
+        </div>`}
     </div>
-    <div class="max-md:hidden">
-      <p class="mb-2 text-[14px] font-bold">שקופית ${sel + 1} מתוך ${slides.length}</p>
-      <${Canvas}><${Slide} s=${s} t=${tpl} p=${p} i=${sel} total=${slides.length} noLogo=${flags.noLogo} /><//>
+    <div class="max-md:order-first max-md:mx-auto max-md:w-full max-md:max-w-[280px]">
+      <p class="mb-1.5 flex items-center justify-between text-[14px] font-bold">שקופית ${sel + 1} מתוך ${slides.length}
+        <span class="flex gap-1">
+          <button type="button" class="grid h-7 w-7 place-items-center rounded-lg bg-white text-brand-600 ring-1 ring-line disabled:text-faint cursor-pointer" disabled=${sel === 0} onClick=${() => setSel(sel - 1)} aria-label="השקופית הקודמת"><${Icon} name="chevron-right" size=${16} /></button>
+          <button type="button" class="grid h-7 w-7 place-items-center rounded-lg bg-white text-brand-600 ring-1 ring-line disabled:text-faint cursor-pointer" disabled=${sel === slides.length - 1} onClick=${() => setSel(sel + 1)} aria-label="השקופית הבאה"><${Icon} name="chevron-left" size=${16} /></button>
+        </span>
+      </p>
+      <${Canvas}>${art(s, sel, edit)}<//>
+      <p class="mt-1.5 flex items-center gap-1 text-[12px] text-muted"><${Icon} name="mouse-pointer-click" size=${14} />לחיצה על טקסט בשקופית: עריכה במקום</p>
     </div>
   </div>`;
 }
@@ -572,7 +654,7 @@ function ReelEditor({ item, st, setIt, p, tpl, flags, notify, cfg }) {
   return html`<div class="grid items-start gap-5 md:grid-cols-[1fr_190px]">
     <div class="min-w-0">
       <${SubStep} n="1" aside=${html`<small class="text-[12px] text-muted">למעלה לאורך כל הרילס</small>`}>בוחרים הוק<//>
-      <div class="mb-3 grid gap-1.5 sm:grid-cols-2" role="radiogroup">
+      <div class="mb-2 grid gap-1.5 sm:grid-cols-2" role="radiogroup">
         ${tp.hooks.map((h, i) => html`<button key=${i} type="button" role="radio" aria-checked=${st.hook === i} onClick=${() => setIt({ hook: i })} class=${cx('flex items-center justify-between gap-2 rounded-xl border-[1.5px] bg-white px-2.5 py-1.5 text-start cursor-pointer', st.hook === i ? 'border-brand-600 bg-brand-50' : 'border-line hover:border-brand-300')}>
           <span class="text-[14px] font-bold leading-snug">${h}</span>
           <${Counter} n=${h.length} limit=${LIMITS.hookChars} unit="" />
@@ -580,18 +662,25 @@ function ReelEditor({ item, st, setIt, p, tpl, flags, notify, cfg }) {
         <button type="button" role="radio" aria-checked=${st.hook === 'none'} onClick=${() => setIt({ hook: 'none' })} class=${cx('rounded-xl border-[1.5px] bg-white px-2.5 py-1.5 text-start text-[14px] font-bold cursor-pointer', st.hook === 'none' ? 'border-brand-600 bg-brand-50' : 'border-line hover:border-brand-300')}>בלי הוק</button>
       </div>
       ${!ready &&
-      html`<${SubStep} n="2" aside=${html`<small class="text-[12px] text-muted">30 עד 45 שניות</small>`}>מצלמים לפי התסריט, עכשיו או אחר כך<//>
-        <div class="mb-3 overflow-hidden rounded-xl ring-1 ring-line">
-          <table class="w-full text-[13px]">
-            <tbody>${script.map((r) => html`<tr class="border-t border-line bg-white align-top first:border-0"><td class="w-[50px] px-2 py-1 tabular-nums text-muted">${r.at}</td><td class="px-2 py-1">${r.say}</td><td class="px-2 py-1 font-bold max-sm:hidden">${r.screen}</td></tr>`)}</tbody>
-          </table>
+      html`<${SubStep} n="2" class="!mb-1.5" aside=${html`<small class="text-[12px] text-muted">כ-${script.length > 5 ? 45 : 35} שניות</small>`}>התסריט<//>
+        <div class="mb-2 overflow-hidden rounded-xl bg-white text-[13px] ring-1 ring-line">
+          <div class="grid grid-cols-[52px_1fr] bg-canvas text-[12px] font-bold text-muted sm:grid-cols-[52px_1.4fr_0.6fr]">
+            <span class="px-2 py-0.5">שניות</span>
+            <span class="flex items-center gap-1 px-2 py-0.5"><${Icon} name="mic" size=${13} />מה ${g('אתה אומר', 'את אומרת')} למצלמה</span>
+            <span class="flex items-center gap-1 px-2 py-0.5 max-sm:hidden"><${Icon} name="type" size=${13} />כתוב על המסך (נכנס לבד)</span>
+          </div>
+          ${script.map((r) => html`<div class="grid grid-cols-[52px_1fr] items-center border-t border-line sm:grid-cols-[52px_1.4fr_0.6fr]">
+            <span class="whitespace-nowrap px-2 py-0.5 tabular-nums text-muted" dir="ltr">${r.at.replace('-', '–')}</span>
+            <span class="px-2 py-0.5 leading-snug">${r.say}</span>
+            <span class="px-2 pb-1 max-sm:col-start-2 sm:py-0.5"><span class="inline-block rounded-md bg-ink px-1.5 py-px text-[12px] font-bold leading-snug text-white"><span class="sm:hidden">על המסך: </span>${r.screen}</span></span>
+          </div>`)}
         </div>
-        ${st.video === 'later'
-          ? html`<p class="flex flex-wrap items-center gap-2 rounded-xl bg-warn-50 p-2.5 text-[14px] text-warn"><${Icon} name="video-off" size=${16} />הרילס ייכנס ליומן כתזכורת לצלם, ויתוזמן אחרי ההעלאה.<button type="button" class="font-bold underline underline-offset-2 cursor-pointer" onClick=${() => setSheet('pick')}>להעלות עכשיו</button></p>`
-          : html`<div class="flex flex-wrap gap-2">
-              <${Button} variant="secondary" onClick=${() => setSheet('pick')}><${Icon} name="upload" size=${16} />להעלות סרטון<//>
-              <${Button} variant="quiet" onClick=${() => (setIt({ video: 'later' }), notify('התסריט נשמר. ביומן תהיה תזכורת לצלם', 'calendar-plus'))}>אצלם אחר כך<//>
-            </div>`}`}
+        <${SubStep} n="3" class="!mb-1" aside=${st.video !== 'later' && html`<span class="flex flex-wrap gap-2">
+            <${Button} variant="secondary" class="!h-9" onClick=${() => setSheet('pick')}><${Icon} name="upload" size=${16} />להעלות סרטון<//>
+            <${Button} variant="quiet" class="!h-9" onClick=${() => (setIt({ video: 'later' }), notify('התסריט נשמר. ביומן תהיה תזכורת לצלם', 'calendar-plus'))}>אצלם אחר כך<//>
+          </span>`}>מצלמים ומעלים<//>
+        <p class="flex items-start gap-1.5 text-[13px] text-muted"><${Icon} name="smartphone" size=${14} class="mt-0.5 shrink-0 text-brand-600" />בטלפון, לאורך, ובמילים שלך (לא צריך לשנן). מעלים את הסרטון כמו שצולם: החיתוך, הכתוביות, ההוק והכריכה נעשים כאן.</p>
+        ${st.video === 'later' && html`<p class="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-warn-50 p-2.5 text-[14px] text-warn"><${Icon} name="video-off" size=${16} />הרילס ייכנס ליומן כתזכורת לצלם, ויתוזמן אחרי ההעלאה.<button type="button" class="font-bold underline underline-offset-2 cursor-pointer" onClick=${() => setSheet('pick')}>להעלות עכשיו</button></p>`}`}
       ${ready &&
       html`<div class="rise">
         <${SubStep} n="2">הסרטון<//>
@@ -599,7 +688,7 @@ function ReelEditor({ item, st, setIt, p, tpl, flags, notify, cfg }) {
           <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-money-50 text-money"><${Icon} name="clapperboard" size=${22} /></span>
           <span class="min-w-0 flex-1">
             <b class="block text-[15px]">הסרטון מוכן · ${fmtSec(len)}</b>
-            <small class="block text-[13px] text-muted">${[reel.silence && '6 שתיקות קוצרו', reel.caps ? `${caps.length} שורות כתוביות` : 'בלי כתוביות', st.names === 'cut' ? 'משפט עם שם נחתך' : st.names === 'name' ? 'שם הושמט' : ''].filter(Boolean).join(' · ')}</small>
+            <small class="block text-[13px] text-muted">${[reel.cover === 'frame' ? 'כריכה מהסרטון' : 'כריכה מעוצבת', reel.silence && '6 שתיקות קוצרו', reel.caps ? `${caps.length} שורות כתוביות` : 'בלי כתוביות', st.names === 'cut' ? 'משפט עם שם נחתך' : st.names === 'name' ? 'שם הושמט' : ''].filter(Boolean).join(' · ')}</small>
           </span>
           <${Button} onClick=${() => setSheet('edit')}><${Icon} name="scissors" size=${16} />לערוך את הסרטון<//>
           <button type="button" class="text-[14px] font-bold text-brand-600 underline underline-offset-2 cursor-pointer" onClick=${() => setSheet('pick')}>להחליף</button>
@@ -619,7 +708,7 @@ function ReelEditor({ item, st, setIt, p, tpl, flags, notify, cfg }) {
 const ITEM_HOW = {
   post: 'בוחרים פתיח, קוראים, ומאשרים בכפתור למטה.',
   carousel: 'עוברים על השקופיות, מתקנים אם צריך, ומאשרים בכפתור למטה.',
-  reel: 'בוחרים הוק, מצלמים לפי התסריט (עכשיו או אחר כך), ומאשרים בכפתור למטה.',
+  reel: 'בוחרים הוק, מצלמים לפי התסריט ומעלים, עכשיו או אחר כך.',
 };
 
 // One item of the week per screen: "פריט 2 מתוך 3". The main button approves it and moves on.
@@ -782,9 +871,12 @@ function NextWeek({ cfg, setCfg, onNextWeek }) {
 
 export function Done({ cfg, setCfg, flags, notify, onGrow, onNextWeek }) {
   const week = cfg.week || 1;
+  const growing = cfg.growth === 'active';
   useEffect(() => {
     const t = setTimeout(() => confetti('step'), 200);
-    return () => clearTimeout(t);
+    // Right after the confetti: the offer to grow the followers, once a week, until bought.
+    const o = !growing && cfg.growthAsked !== week ? setTimeout(() => (setCfg({ growthAsked: week }), onGrow()), 1600) : null;
+    return () => (clearTimeout(t), clearTimeout(o));
   }, []);
   const [tab, setTab] = useState('line');
   const [ver, setVer] = useState(0);
@@ -806,11 +898,11 @@ export function Done({ cfg, setCfg, flags, notify, onGrow, onNextWeek }) {
         </ul>
       </section>
       <${NextWeek} cfg=${cfg} setCfg=${setCfg} onNextWeek=${onNextWeek} />
-      ${week === 1 && html`<section class="fb-panel flex flex-wrap items-center gap-3 !p-3">
-        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-100 text-brand-600"><${Icon} name="trending-up" size=${19} /></span>
-        <span class="min-w-0 flex-1"><b class="block text-[15px]">יותר עוקבים שמתאימים לך, עם Grow</b><small class="block text-[13px] text-muted">${flags.growSub ? 'כלול במנוי שלך' : 'תוספת למנוי'}</small></span>
-        <${Button} variant="secondary" onClick=${onGrow}>${flags.growSub ? 'להפעיל' : 'לפרטים'}<//>
-      </section>`}
+      <section class=${cx('fb-panel flex flex-wrap items-center gap-3 !p-3', !growing && 'border-[1.5px] border-money/40')}>
+        <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-money-50 text-money"><${Icon} name="trending-up" size=${20} /></span>
+        <span class="min-w-0 flex-1"><b class="block text-[15px]">${growing ? 'צמיחת העוקבים פעילה' : 'עוקבים חדשים, בלי מאמץ'}</b><small class="block text-[13px] text-muted">${growing ? 'עוקבים חדשים מהקהל שבחרת, כל יום. המספרים בדף הבית.' : cfg.growth === 'paid' ? 'התשלום עבר. חסרים העמודים הדומים והחשבון באינסטגרם.' : 'עוקבים אוטומטית אחרי הקהל שלך, כדי שיגיעו לתוכן. 350 ₪ + מע"מ לחודש, בלי התחייבות.'}</small></span>
+        ${!growing && html`<${Button} variant="secondary" onClick=${onGrow}>${cfg.growth === 'paid' ? 'להשלים' : 'איך זה עובד'}<//>`}
+      </section>
     </div>
     <div class="flex flex-col gap-4">
       <div class="flex justify-center pt-2">

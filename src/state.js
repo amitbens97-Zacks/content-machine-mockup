@@ -31,7 +31,7 @@ export function freshState() {
       done: false,
     },
     // developer switches (Shift+D)
-    flags: { b2b: false, noOffer: false, noLogo: false, noPhoto: false, growSub: true, failPublish: false, personalIg: false, noPage: false },
+    flags: { b2b: false, noOffer: false, noLogo: false, noPhoto: false, failPublish: false, personalIg: false, noPage: false },
   };
 }
 

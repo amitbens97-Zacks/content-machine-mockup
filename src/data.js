@@ -335,8 +335,8 @@ export const BIOS = [
   ['חרדה היא תגובה, לא תכונה', `${g('מטפל', 'מטפלת')} CBT · 8 שנים בקליניקה`, 'טיפים כל שבוע, ושיחת היכרות ↓'],
 ];
 
-// Grow AI: audience growth on Instagram (follow / unfollow by daily quotas). FlowBiz only
-// passes what Grow needs, straight to Grow's API. Nothing is kept on FlowBiz's side.
+// Grow AI, the provider behind "follower growth" (follow, unfollow after 10 days). The name
+// is never shown to the user. FlowBiz passes what it needs straight to its API and keeps nothing.
 export const GROW = {
   needs: ['3 עד 5 עמודי אינסטגרם דומים, שהקהל שלך עוקב אחריהם', 'שם המשתמש באינסטגרם', 'הסיסמה לאינסטגרם, שעוברת ישר ל-Grow'],
 };

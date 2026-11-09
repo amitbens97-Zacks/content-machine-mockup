@@ -10,7 +10,7 @@ import { Logo, PartnerBubble, Progress, TopBar, BottomBar, Status, PrimaryButton
 import { STEP, ITEM_SCREENS, SCREEN_NAME, START_PLAN, NEXT_PLANS, MAX_WEEKS, flowOf, setWeekNo, g } from './data.js';
 import { loadState, saveState, freshState } from './state.js';
 import { Opening, ChannelScreen, LookScreen, TopicsScreen, ItemScreen, FlyerScreen, Done, itemState } from './step.js';
-import { WeekScreen, GrowSheet, ConfirmAll, targetsOf } from './publish.js';
+import { WeekScreen, GrowthSheet, ConfirmAll, targetsOf } from './publish.js';
 import { Home } from './home.js';
 import { DevPanel } from './devnotes.js';
 import { EMBED, IS_PHONE, readView, saveView, writeHandoff, takeHandoff, applyPhoneViewport, ViewToggle, PhonePreview } from './viewswitch.js';
@@ -157,7 +157,7 @@ function App({ view: shellView, onViewChange }) {
   const shell = (inner) => html`<div class="fb-notebook flex h-dvh flex-col text-ink" dir="rtl">
     ${inner}
     <${Toast} toast=${toast} />
-    ${grow && html`<${GrowSheet} flags=${state.flags} notify=${notify} onClose=${() => setGrow(false)} />`}
+    ${grow && html`<${GrowthSheet} cfg=${state.cfg} setCfg=${setCfg} notify=${notify} onClose=${() => setGrow(false)} />`}
     <${DevPanel} open=${dev} onClose=${() => setDev(false)} onJump=${jump} onReset=${reset} flags=${state.flags} setFlag=${setFlag} />
   </div>`;
 
